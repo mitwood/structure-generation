@@ -1,7 +1,7 @@
-# structure-generation
+# Structure_Generation
 
 ## Requirements
-FitSNAP - (post library update)
+FitSNAP - (post library update) 
 ASE - v 3.22.1
 lammps - LAMMPS (post mliap update)
 
@@ -23,11 +23,11 @@ Add the `/path/to/Structure_Generation/lib` folder to your PYTHONPATH
 `examples` folder containing examples for local (lammps) and global optimization (genetic algorithm, simulated annealing) - See further details in the README of the examples folder
 
 
-## Definition of GSQS
+## Definition of GRS
 
 For theoretical definitions and methods, see the manuscript at: *link_here*
 *TODO* update with software-relevant definitions
 
 ## USAGE
 
-follow procedure in `examples/simple_test` first.
+follow procedure in `examples/simple_test` first. 
