@@ -1,13 +1,27 @@
 import numpy as vnp
 from ase.io import read,write
-from ase.atoms import Atoms
+#from ase.atoms import Atoms
+from ase import Atoms, Atom
+from ase.db import connect
+from icet.tools import enumerate_structures
+import numpy as np
+import os
+from ase.db import connect
+from ase.build import bulk, fcc111, add_adsorbate
 
 #manually tabulated minimum soft core cutoffs (if not tabulated here ASE-generated default will be used)
 min_soft = {'Cr':1.65,'Fe':1.7,'Si':1.2,'V':1.65}
 # TODO - make minimum cutoffs an input
 
+def bound_descs(descs,low_bound=-vnp.inf,up_bound=vnp.inf):
+    maskb = descs > up_bound
+    maskb2 = descs < low_bound
+    descs[maskb] = vnp.nan
+    descs[maskb2] = -vnp.nan
+    descs = vnp.nan_to_num(descs,nan=0.0,posinf=0.0,neginf=0.0)
+    return descs
 
-def build_target(start):
+def build_target(start,save_all=False):
     from ase.io import read,write
     from ase import Atoms,Atom
     from ase.ga.utilities import closest_distances_generator, CellBounds
@@ -20,7 +34,7 @@ def build_target(start):
     from lammps import lammps, LMP_TYPE_ARRAY, LMP_STYLE_GLOBAL
 
     # get mpi settings from lammps
-    def run_struct(atoms,fname,maxcut=6.0):
+    def run_struct(atoms,fname,maxcut=7.0):
             
         lmp = lammps()
         me = lmp.extract_setting("world_rank")
@@ -81,10 +95,11 @@ def build_target(start):
         run_lammps(dgradflag)
         lmp_pace = lmp.numpy.extract_compute("pace", LMP_STYLE_GLOBAL, LMP_TYPE_ARRAY)
         descriptor_grads = lmp_pace[ : len(atoms), : -1]
+        #descriptor_grads = bound_descs(lmp_pace[ : len(atoms), : -1])
         return descriptor_grads
     #start = 'supercell_target.cif'
     file_prefix = 'iter_%d' % 0
-    if type(start) == 'str':
+    if type(start) == str:
         try:
             atoms = read(start)
         except:
@@ -92,12 +107,15 @@ def build_target(start):
     elif type(start) == Atoms:
     #    except
         atoms = start 
-
+    else:
+        atoms = start
 
     #atoms = read(start)
 
     write('%s.data' % file_prefix,atoms,format='lammps-data')
     start_arr = run_struct(atoms, '%s.data'% file_prefix)
+    if save_all:
+        vnp.save('A_target_all.npy',start_arr)
     avg_start = vnp.average(start_arr,axis=0)
     var_start = vnp.var(start_arr,axis=0)
     vnp.save('target_descriptors.npy',avg_start)
@@ -119,6 +137,53 @@ def generate_random_integers(sum_value, n):
     # Calculate the Nth integer to ensure the sum is equal to sum_value
     random_integers.append(sum_value - sum(random_integers))
     return random_integers
+
+
+class System_Enum:
+    def __init__(self,base_species):
+        self.a = None
+        self.blocks = []
+        self.crystal_structures = []
+        self.lattice_bases = []
+        self.stored_lattice = {'a':{}}
+        self.base_species = base_species
+        return None
+
+
+    def set_crystal_structures(self,structs = ['bcc']):
+        self.crystal_structures = structs
+
+    def set_lattice_constant(self,a):
+        if type(a) == float:
+            self.a = [a]*len(self.crystal_structures)
+        elif type(a) == list:
+            self.a = a
+        else:
+            raise TypeError("cannot use type other than float or list for lattice constant(s)")
+
+        return None
+
+    def set_substitutional_blocks(self,blocks=None):
+        assert len(self.crystal_structures) >= 1, "set crystal structures before defining substitutional blocks - default is 'fcc' "
+        if blocks == None:
+            blocks = [ [self.base_species] ] * len(self.crystal_structures)
+        else:
+            blocks = blocks
+        self.blocks = blocks
+
+    def enumerate_structures(self, min_int_mult, max_int_mult):
+        all_structs = []
+        assert self.a != None, "set_lattice_constant first, then do enumeration"
+        assert self.blocks != None, "set_substitutuional_blocks first, then do structure enumeration"
+        for icrystal,crystal in enumerate(self.crystal_structures):
+            primitive = bulk(self.base_species[0] , crystal , a=self.a[icrystal] , cubic=False)
+            print ('generating structures for crystal: %s' % crystal)
+            enumerated = enumerate_structures(primitive, range(min_int_mult, max_int_mult), self.blocks[icrystal])
+            sublist = [ i for i in enumerated ]
+            self.stored_lattice['a'][crystal] = self.a[icrystal]
+            all_structs.append(sublist)
+        self.all_structs = all_structs
+        return all_structs
 
 def starting_generation(pop_size,all_species,cell,typ='ase',nchem = 1,use_template=None):
     pop = []
@@ -227,8 +292,8 @@ pair_coeff * * soft %f\n""" % (max(min_soft_utypes),soft_strength)
 """pair_coeff * * mliap %s
 
 thermo 10
-fix 1b all box/relax iso 0.0 vmax 0.001
-velocity all create 0.0001 4928459 dist gaussian""" % typstr
+velocity all create 1. 4928459 dist gaussian
+fix 1b all box/relax iso 0.0 vmax 0.001""" % typstr
         generate2 = generate2a+generate2b
     else:
         generate2a =\
@@ -238,7 +303,7 @@ pair_coeff * * soft %f\n""" % (max(min_soft_utypes),soft_strength)
 """pair_coeff * * mliap %s
 
 thermo 10
-velocity all create 0.0001 4928459 dist gaussian""" % typstr
+velocity all create 1. 4928459 dist gaussian""" % typstr
         generate2 = generate2a+generate2b
 #minimize 1e-8 1e-8 1000 1000"
     #s = generate.format(fname,index,vnp.random.uniform(0.0,1.0))
@@ -254,24 +319,93 @@ def prim_crystal(elem_list):
 
 
 from hnf import *
+#elems[0],desired_size,volfrac=1.0,cubic=True,override_lat='fcc',override_a=2.98
+def bulk_template(elem,desired_size,volfrac=1.0,cubic=True,override_lat=None,override_a=None):
+    if not override_a:
+        prim = bulk(elem,cubic=False)
+        if cubic:
+            atoms = bulk(elem,cubic=True)
+        else:
+            atoms = prim
 
-def bulk_template(elem,desired_size,volfrac=1.0,cubic=True):
-    prim = bulk(elem,cubic=False)
-    if cubic:
-        atoms = bulk(elem,cubic=True)
+        if type(desired_size) == tuple:
+            atoms = atoms*desired_size
+        else:
+            atoms = prim * (desired_size,desired_size,desired_size)    
+        return atoms
     else:
-        atoms = prim
+        if override_lat != None:
+            prim = bulk(elem,override_lat,a=override_a,cubic=False)
+        elif override_lat == None:
+            prim = bulk(elem,a=override_a,cubic=False)
+        if cubic:
+            if override_lat != None:
+                atoms = bulk(elem,override_lat,override_a,cubic=True)
+            elif override_lat == None:
+                atoms = bulk(elem,override_a,cubic=True)
+        else:
+            atoms = prim
 
-    if type(desired_size) == tuple:
-        atoms = atoms*desired_size
+        if type(desired_size) == tuple:
+            atoms = atoms*desired_size
+        else:
+            atoms = prim * (desired_size,desired_size,desired_size)
+        cell_this = atoms.get_cell()
+        atoms.set_cell(cell_this*volfrac,scale_atoms=True)
+        return atoms
+
+def internal_basic(atoms,index=0,min_typ=None,soft_strength=1.0):
+    s = at_to_lmp(atoms,index,min_typ=min_typ,soft_strength=soft_strength) 
+    return s
+
+def bulk_sis_template(base_species,cellmaxmult,crystal_types=['bcc'],lattice_constants=[2.88],cellmin=1):
+    base_species_pairs = [base_species,
+    ]
+    collected_atoms =[]
+    assert len(crystal_types) == 1, "must have only one crystal type at a time"
+    chem_lst = ['%s']*len(base_species)
+    chem_str = '-'.join(b for b in chem_lst) % tuple(base_species)
+    this_db_prefix = chem_str + '_' + crystal_types[0] + '_' + str(cellmaxmult)
+    if os.path.isfile('%s.db' % this_db_prefix):
+        print('has db')
+        db = connect('%s.db' % this_db_prefix)
+        for row in db.select():
+            atoms = row.toatoms()
+            collected_atoms.append(atoms)
     else:
-        atoms = prim * (desired_size,desired_size,desired_size)    
-    return atoms
+        print('generating db')
+        for base_species in base_species_pairs:
+            db = connect('%s.db' % this_db_prefix)
+            se = System_Enum(base_species)
+            crystal_structures = crystal_types
+            se.set_lattice_constant(lattice_constants)
+            se.set_crystal_structures(crystal_structures)
+            se.set_substitutional_blocks([base_species,base_species])
+            astrcts = se.enumerate_structures(cellmin,cellmaxmult+1)
+            chem_lst = ['%s']*len(base_species)
+            chem_str = '-'.join(b for b in chem_lst) % tuple(base_species)
 
-def internal_generate_cell(index,desired_size=4,template=None,desired_comps={'Ni':1.0},use_template=None,min_typ='temp',soft_strength=10000):
+            for icrystal,crystal in enumerate(crystal_structures):
+                this_db_prefix = chem_str + '_' + crystal + '_' + str(cellmaxmult) 
+                strcts = astrcts[icrystal]
+                for istrct , strct in enumerate(strcts):
+                    if len(strct) > 1:
+                        db.write(strct)
+                        collected_atoms.append(strct)
+                    else:
+                        db.write(strct*(2,1,1))
+                        collected_atoms.append(strct*(2,1,1))
+    return collected_atoms
+#base_species = ['Cr','Fe']
+#cellmaxmult=4
+#bulk_sis_template(base_species,cellmaxmult,crystal_types=['bcc'],lattice_constants=[2.88])
+
+def internal_generate_cell(index,desired_size=4,template=None,desired_comps={'Ni':1.0},use_template=None,min_typ='temp',soft_strength=10000,sis_freeze=False):
+    #from ase.build import bulk
+    #from ase import Atoms,Atom
     if template == None:
-        from ase.build import bulk
-        from ase import Atoms,Atom
+        #from ase.build import bulk
+        #from ase import Atoms,Atom
         chems = list(desired_comps.keys())
         template = Atoms([chems[0]]*desired_size)
         atoms_base = bulk(chems[0])
@@ -295,6 +429,7 @@ def internal_generate_cell(index,desired_size=4,template=None,desired_comps={'Ni
         template.set_scaled_positions(vnp.random.uniform(0,1,(desired_size,3)))
     else:
         tempalte = template
+        
     new_comps = {elem:int(round(len(template)*cmp))/len(template) for elem,cmp in desired_comps.items()}
     print ('for structure of size:%d'% len(template),'desired compositions:', desired_comps,'will be replaced with', new_comps)
     all_species = get_target_comp_s(desired_size=len(template),desired_comps=new_comps,parent_cell=template.get_cell())
@@ -307,10 +442,20 @@ def internal_generate_cell(index,desired_size=4,template=None,desired_comps={'Ni
         diff = len(template)-len(all_species)
         all_species = all_species + all_species[:diff]
     #print ('all specs vs template',len(all_species),len(template))
-    assert len(all_species)== len(template), "composition list size must match size of template atoms"
+    #assert len(all_species)== len(template), "composition list size must match size of template atoms"
     cellg = template.get_cell()
+    scpos = template.get_scaled_positions()
+    
     if use_template:
-        rnd = starting_generation(1,all_species,cellg,typ='ase',use_template=template)[0]
+        if not sis_freeze:
+            #rnd = starting_generation(1,all_species,cellg,typ='ase',use_template=template)[0]
+            np.random.shuffle(all_species)
+            rnd = Atoms(all_species)
+            rnd.set_cell(cellg)
+            rnd.set_pbc(True)
+            rnd.set_scaled_positions(scpos)
+        else:
+            rnd = template 
     else:
         rnd = starting_generation(1,all_species,cellg,typ='ase')[0]
     s = at_to_lmp(rnd,index,min_typ=min_typ,soft_strength=soft_strength)
