@@ -1,4 +1,5 @@
 [BASIS]
+descriptor = ACE
 elements = ['W']
 ranks = [1,2,3]
 lmax = [0,3,3]
@@ -22,14 +23,13 @@ population_size = 20
 ngenerations = 10
 
 [SCORING]
-q1_weight = 1.0    #Coeff on loss function mean term (should always be positive)
-q2_weight = 0.0    #Coeff on loss function varience term (should always be positive)
-cross_weight = 0.0   #closeness to target as a joint distribution min/max just flip this sign (pos being minimize).
-self_weight = 0.50 #closeness to target within an atomic configuration. min/max just flip this sign (pos being minimize). 
-q1_bonus = 0.0          # extra objective function variables to target exact matches of descriptors  
-q1_cross_bonus = 0.0    # extra objective function variables to target exact matches of descriptors 
-q2_bonus = 0.0          # extra objective function variables to target exact matches of descriptors 
-q2_cross_bonus = 0.0    # extra objective function variables to target exact matches of descriptors 
+moments = [1, 2, 3, 4]    # mean, std, skew, kurt
+moments_coeff = [1,0.1,0.01,0.001]
+moment_bonus = [1, 5, 10, 20]
+moments_cross_coeff = [1,0.1,0.01,0.001]
+moment_cross_bonus = [1, 5, 10, 20]
+attractor_target = True
+exact_distribution = False # Read in a stock structure and match exactly
 
 [TARGET]
 target_fname = '../bcc.data'

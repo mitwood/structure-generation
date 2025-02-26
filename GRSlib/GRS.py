@@ -20,7 +20,7 @@ class GRS:
     """
     def __init__(self, input=None, comm=None, arglist: list=[]):
         self.comm = comm
-        # Instantiate ParallelTools and Config instances belonging to this FitSnap instance.
+        # Instantiate ParallelTools and Config instances belonging to this GRS instance.
         # NOTE: Each proc in `comm` creates a different `pt` object, but shared arrays still share 
         #       memory within `comm`.
         self.pt = ParallelTools(comm=comm)
@@ -29,8 +29,9 @@ class GRS:
         if self.config.args.verbose:
             self.pt.single_print(f"GRS instance hash: {self.config.hash}")
         # Instantiate other backbone attributes.
-#        self.scraper = scraper(self.config.sections["SCRAPER"].scraper, self.pt, self.config) \
-#            if "SCRAPER" in self.config.sections else None
+        self.basis = basis(self.config.sections["BASIS"].descriptor, self.pt, self.config) if "BASIS" in self.config.sections else None
+            #Currently first arg (basis type) will default to ACE, but this could be generalized
+
 #        self.calculator = calculator(self.config.sections["CALCULATOR"].calculator, self.pt, self.config) \
 #            if "CALCULATOR" in self.config.sections else None
 #        self.solver = solver(self.config.sections["SOLVER"].solver, self.pt, self.config) \
@@ -43,8 +44,8 @@ class GRS:
 
         # Check LAMMPS version if using nonlinear solvers.
         if (hasattr(self.pt, "lammps_version")):
-            if (self.config.sections['CALCULATOR'].nonlinear and (self.pt.lammps_version < 20220915) ):
-                raise Exception(f"Please upgrade LAMMPS to 2022-09-15 or later to use nonlinear solvers.")
+            if (self.pt.lammps_version < 20220915):
+                raise Exception(f"Please upgrade LAMMPS to 2022-09-15 or later to use MLIAP based structure searching.")
           
     def __del__(self):
         """Override deletion statement to free shared arrays owned by this instance."""
@@ -60,7 +61,14 @@ class GRS:
             raise AttributeError(f"Overwriting {name} is not allowed; instead change {name} in place.")
         else:
             super().__setattr__(name, value)
-       
+
+
+    def FnName(self):
+        """
+        
+        
+        """
+    
     def scrape_configs(self, delete_scraper: bool = False):
         """
         Scrapes configurations of atoms and creates an instance attribute list of configurations called `data`.
@@ -176,4 +184,3 @@ class GRS:
             #self.output.write_lammps(self.solver.fit)
             #self.output.write_errors(self.solver.errors)
         write_output()
-placeholder

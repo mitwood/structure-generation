@@ -6,15 +6,14 @@ class Scoring(Section):
 
     def __init__(self, name, config, pt,infile, args):
         super().__init__(name, config, pt, infile,args)
-        self.allowedkeys = ['avg_weight', 'var_weight', 'ensemble_weight', 'self_weight','avg_bonus','avg_ensemble_bonus','var_bonus','var_ensemble_bonus']
+        self.allowedkeys = ['moments', 'moments_coeff', 'moment_bonus', 'moments_cross_coeff','moment_cross_bonus','attractor_target','exact_distribution']
         self._check_section()
-        self.scoring = self.get_value("SCORING", "avg_weight", 1.0)
-        self.scoring = self.get_value("SCORING", "var_weight", 0.0)
-        self.scoring = self.get_value("SCORING", "ensemble_weight", 0.0)
-        self.scoring = self.get_value("SCORING", "self_weight", 0.5)
-        self.scoring = self.get_value("SCORING", "avg_bonus", 0.0)
-        self.scoring = self.get_value("SCORING", "avg_ensemble_bonus", 0.0)
-        self.scoring = self.get_value("SCORING", "var_bonus", 0.0)
-        self.scoring = self.get_value("SCORING", "var_ensemble_bonus", 0.0)
+        self.scoring = self.get_value("SCORING", "moments", [1,2], interpreter=int)
+        self.scoring = self.get_value("SCORING", "moments_coeff", [1.0, 0.1])
+        self.scoring = self.get_value("SCORING", "moment_bonus", [1.0, 5.0])
+        self.scoring = self.get_value("SCORING", "moments_cross_coeff", [1.0, 0.1])
+        self.scoring = self.get_value("SCORING", "moment_cross_bonus", [1.0, 5.0])
+        self.scoring = self.get_value("SCORING", "attractor_target", True, interpreter=bool)
+        self.scoring = self.get_value("SCORING", "exact_distribution", False, interpreter=bool)
         self.delete()
 

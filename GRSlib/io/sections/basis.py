@@ -14,13 +14,14 @@ try:
         def __init__(self, name, config, pt, infile, args):
             super().__init__(name, config, pt, infile, args)
             
-            allowedkeys = ['numTypes', 'ranks', 'lmax', 'nmax', 'mumax', 'nmaxbase', 'rcutfac', 'lambda', 
+            allowedkeys = ['descriptor', 'numTypes', 'ranks', 'lmax', 'nmax', 'mumax', 'nmaxbase', 'rcutfac', 'lambda', 
                           'type', 'bzeroflag', 'erefs', 'rcinner', 'drcinner', 'RPI_heuristic', 'lmin', 
                           'bikflag', 'dgradflag','wigner_flag','b_basis','manuallabs']
             for value_name in config['BASIS']:
                 if value_name in allowedkeys: continue
                 else:
                     raise RuntimeError(">>> Found unmatched variable in BASIS section of input: ",value_name)
+            self.numtypes = self.get_value("BASIS", "descriptor", "ACE")
             self.numtypes = self.get_value("BASIS", "numTypes", "1", "int")
             self.ranks = self.get_value("BASIS","ranks","3").split()
             self.lmin = self.get_value("BASIS", "lmin", "0").split() 
