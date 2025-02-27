@@ -23,6 +23,6 @@ print("attr of grs.config.convert_to_dict:")
 print(attributes)
 
 
-print(grs.config.sections["BASIS"].descriptor)
+#print(grs.config.sections["BASIS"].descriptor)
 print("!")
 exit()

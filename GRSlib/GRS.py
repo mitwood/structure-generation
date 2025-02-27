@@ -51,29 +51,44 @@ class GRS:
         else:
             super().__setattr__(name, value)
 
-
-    def FnName(self):
+    def convert(self):
         """
-        
-        
-        """
-    
-    def scrape_configs(self, delete_scraper: bool = False):
-        """
-        Scrapes configurations of atoms and creates an instance attribute list of configurations called `data`.
-        
-        Args:
-            delete_scraper: Boolean determining whether the scraper object is deleted or not after scraping. Defaults 
-                            to False. Since scraper can retain unwanted memory, we delete it in executable mode.
+        Accepts a structure (xyz) as input and will return descriptors (D), optionally will convert
+        between file types (xyz=lammps-data, ase.Atoms, etc)
         """
         @self.pt.single_timeit
-        def scrape_configs():
-            self.scraper.scrape_groups()
-            self.scraper.divvy_up_configs()
-            self.data = self.scraper.scrape_configs()
-            if delete_scraper:
-                del self.scraper
-        scrape_configs()
+        def convert():
+            #Pass data to, and do something with the functs of convert
+            convert()
+    
+    def genetic_move(self):
+        """
+        Propose new structure, or adapt existing ones using a set of moves sampled via a genetic algorithm
+        """
+        @self.pt.single_timeit
+        def genetic_move():
+            #Pass data to, and do something with the functs of genetic_move
+            genetic_move()
+
+    def gradient_move(self):
+        """
+        Accepts a structure (xyz, ase.Atoms) as input and will return updated structure (xyz, ase.Atoms) that 
+        has been modified by motion of atoms on the loss function potential
+        """
+        @self.pt.single_timeit
+        def gradient_move():
+            #Pass data to, and do something with the functs of gradient_move
+            gradient_move()
+
+    def baseline_training(self):
+        """
+        Accepts a structure (xyz, ase.Atoms) as input and will return updated structure (xyz, ase.Atoms) that 
+        has been modified by motion of atoms on the loss function potential
+        """
+        @self.pt.single_timeit
+        def baseline_training():
+            #Pass data to, and do something with the functs of baseline_training
+            baseline_training()
 
     def write_output(self):
         @self.pt.single_timeit
