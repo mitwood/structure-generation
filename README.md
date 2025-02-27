@@ -25,9 +25,9 @@ Add the `/path/to/Structure_Generation/lib` folder to your PYTHONPATH
 
 ## Definition of GRS
 
-For theoretical definitions and methods, see the manuscript at: *link_here*
+For theoretical definitions and methods, see the manuscript at: https://iopscience.iop.org/article/10.1088/1361-648X/ad9791
 *TODO* update with software-relevant definitions
 
 ## USAGE
 
-follow procedure in `examples/simple_test` first. 
+follow procedure in `examples/simple_test` first.
