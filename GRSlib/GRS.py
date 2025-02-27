@@ -18,18 +18,18 @@ class GRS:
                                       initialized with a ParallelTools instance.
         >Update once more of the code structure is fleshed out
     """
-    def __init__(self, input=None, comm=None):
+    def __init__(self, input=None, comm=None, arglist: list=[]):
         self.comm = comm
         # Instantiate ParallelTools and Config instances belonging to this GRS instance.
         # NOTE: Each proc in `comm` creates a different `pt` object, but shared arrays still share 
         #       memory within `comm`.
         self.pt = ParallelTools(comm=comm)
         self.pt.all_barrier()
-        self.config = Config(self,input)
+        self.config = Config(self.pt, input, arguments_lst=arglist)
 
         # Instantiate other backbone attributes.
         self.basis = basis(self.config.sections["BASIS"].descriptor, self.pt, self.config) if "BASIS" in self.config.sections else None
-        self.convert = convert(self.pt,self.config)
+        #self.convert = convert(self.pt,self.config)
 
         # Check LAMMPS version if using nonlinear solvers.
         if (hasattr(self.pt, "lammps_version")):
@@ -74,94 +74,6 @@ class GRS:
             if delete_scraper:
                 del self.scraper
         scrape_configs()
-
-    def process_configs(self, data: list=None, allgather: bool=False, delete_data: bool=False):
-        """
-        Calculate descriptors for all configurations in the :code:`data` list and stores info in the shared arrays.
-        
-        Args:
-            data: Optional list of data dictionaries to calculate descriptors for. If not supplied, we use the list 
-                  owned by this instance.
-            allgather: Whether to gather distributed lists to all processes to just to head proc. In some cases, such as 
-                       processing configs once and then using that data on multiple procs, we must allgather.
-            delete_data: Whether the data list is deleted or not after processing.Since `data` can retain unwanted 
-                         memory after processing configs, we delete it in executable mode.
-        """
-
-        if data is not None:
-            data = data
-        elif hasattr(self, "data"):
-            data = self.data
-        else:
-            raise NameError("No list of data dictionaries to process.")
-
-        # Zero distributed index before parallel loop over configs.
-        self.calculator.distributed_index = 0
-
-        @self.pt.single_timeit
-        def process_configs():
-            self.calculator.allocate_per_config(data)
-            # Preprocess the configs if nonlinear fitting.
-            if (not self.solver.linear):
-                if self.config.args.verbose: 
-                    self.pt.single_print("Nonlinear solver, preprocessing configs.")
-                self.calculator.preprocess_allocate(len(data))
-                for i, configuration in enumerate(data):
-                    self.calculator.preprocess_configs(configuration, i)
-            # Allocate shared memory arrays.
-            self.calculator.create_a()
-            # Calculate descriptors.
-            if (self.solver.linear):
-                for i, configuration in enumerate(data):
-                    # TODO: Add option to print descriptor calculation progress on single proc.
-                    #if (i % 1 == 0):
-                    #   self.pt.single_print(i)
-                    self.calculator.process_configs(configuration, i)
-            else:
-                for i, configuration in enumerate(data):
-                    self.calculator.process_configs_nonlinear(configuration, i)
-            # Delete instance-owned data dictionary to save memory.
-            if delete_data and hasattr(self, "data"):
-                del self.data
-            # Gather distributed lists in `self.pt.fitsnap_dict` to root proc.
-            self.calculator.collect_distributed_lists(allgather=allgather)
-            # Optional extra steps.
-            if self.solver.linear:
-                self.calculator.extras()
-
-        process_configs()
-
-    def perform_fit(self):
-        """Solve the machine learning problem with descriptors as input and energies/forces/etc as 
-           targets"""
-        @ self.pt.single_timeit
-        def fit():
-            if not self.config.args.perform_fit:
-                return
-            elif self.fit is None:
-                if self.solver.linear:
-                    self.solver.perform_fit()
-                else:
-                    # Perform nonlinear fitting on 1 proc only.
-                    if(self.pt._rank==0):
-                        self.solver.perform_fit()
-            else:
-                self.solver.fit = self.fit
-                
-        # If not performing a fit, keep in mind that the `configs` list is None 
-        # for nonlinear models. Keep this in mind when performing error 
-        # analysis.
-        
-        def fit_gather():
-            self.solver.fit_gather()
-
-        @self.pt.single_timeit
-        def error_analysis():
-            self.solver.error_analysis()
-
-        fit()
-        fit_gather()
-        error_analysis()
 
     def write_output(self):
         @self.pt.single_timeit
