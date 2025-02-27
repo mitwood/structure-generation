@@ -1,8 +1,8 @@
-from io.sections.sections import Section
+from GRSlib.io.sections.sections import Section
 
 #pt = ParallelTools()
 #output = Output()
-class Output(Target):
+class Target(Section):
 
     def __init__(self, name, config, pt,infile, args):
         super().__init__(name, config, pt, infile,args)

@@ -1,12 +1,13 @@
 import configparser
 import argparse
 import sys
+from GRSlib.io.sections.section_factory import new_section
 from pathlib import Path
 import random
 
 
 class Config():
-    def __init__(self):
+    def __init__(self,comm,input):
         pass
 
     def parse_config(self):

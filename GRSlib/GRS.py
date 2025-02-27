@@ -1,5 +1,5 @@
-from GRS.parallel_tools import ParallelTools
-from GRS.io.input import Config
+from GRSlib.parallel_tools import ParallelTools
+from GRSlib.io.input import Config
 import random
 
 
@@ -18,29 +18,18 @@ class GRS:
                                       initialized with a ParallelTools instance.
         >Update once more of the code structure is fleshed out
     """
-    def __init__(self, input=None, comm=None, arglist: list=[]):
+    def __init__(self, input=None, comm=None):
         self.comm = comm
         # Instantiate ParallelTools and Config instances belonging to this GRS instance.
         # NOTE: Each proc in `comm` creates a different `pt` object, but shared arrays still share 
         #       memory within `comm`.
         self.pt = ParallelTools(comm=comm)
         self.pt.all_barrier()
-        self.config = Config(self.pt, input, arguments_lst=arglist)
-        if self.config.args.verbose:
-            self.pt.single_print(f"GRS instance hash: {self.config.hash}")
+        self.config = Config(self,input)
+
         # Instantiate other backbone attributes.
         self.basis = basis(self.config.sections["BASIS"].descriptor, self.pt, self.config) if "BASIS" in self.config.sections else None
-            #Currently first arg (basis type) will default to ACE, but this could be generalized
-
-#        self.calculator = calculator(self.config.sections["CALCULATOR"].calculator, self.pt, self.config) \
-#            if "CALCULATOR" in self.config.sections else None
-#        self.solver = solver(self.config.sections["SOLVER"].solver, self.pt, self.config) \
-#            if "SOLVER" in self.config.sections else None
-#        self.output = output(self.config.sections["OUTFILE"].output_style, self.pt, self.config) \
-#            if "OUTFILE" in self.config.sections else None
-
-        self.fit = None
-        self.multinode = 0
+        self.convert = convert(self.pt,self.config)
 
         # Check LAMMPS version if using nonlinear solvers.
         if (hasattr(self.pt, "lammps_version")):

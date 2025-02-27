@@ -1,6 +1,6 @@
 import numpy as np
 import itertools
-from io.sections.sections import Section
+from GRSlib.io.sections.sections import Section
 
 try:
 

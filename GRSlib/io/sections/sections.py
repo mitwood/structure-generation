@@ -1,4 +1,4 @@
-from io.error import ExitFunc
+from GRSlib.io.sections.error import ExitFunc
 from distutils.util import strtobool
 from os import getcwd, path
 

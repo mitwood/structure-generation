@@ -1,4 +1,4 @@
-from io.sections.sections import Section
+from GRSlib.io.sections.sections import Section
 
 #pt = ParallelTools()
 #output = Output()
