@@ -1,6 +1,7 @@
 [BASIS]
 descriptor = ACE
 elements = ['W']
+rcutfac = 5.0
 ranks = [1,2,3]
 lmax = [0,3,3]
 lmin = [0,0,0]

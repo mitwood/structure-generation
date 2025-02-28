@@ -51,15 +51,17 @@ class GRS:
         else:
             super().__setattr__(name, value)
 
-    def convert(self):
+    def converters(self):
         """
         Accepts a structure (xyz) as input and will return descriptors (D), optionally will convert
         between file types (xyz=lammps-data, ase.Atoms, etc)
         """
         @self.pt.single_timeit
-        def convert():
+        def converters():
             #Pass data to, and do something with the functs of convert
-            convert()
+            self.convert.lammps_pace(self.data)
+            print("Called Convert")
+        converters()
     
     def genetic_move(self):
         """
@@ -68,7 +70,8 @@ class GRS:
         @self.pt.single_timeit
         def genetic_move():
             #Pass data to, and do something with the functs of genetic_move
-            genetic_move()
+            print("Called Genetic_Move")
+        genetic_move()
 
     def gradient_move(self):
         """
@@ -78,7 +81,8 @@ class GRS:
         @self.pt.single_timeit
         def gradient_move():
             #Pass data to, and do something with the functs of gradient_move
-            gradient_move()
+            print("Called Gradient_Move")
+        gradient_move()
 
     def baseline_training(self):
         """
@@ -88,7 +92,8 @@ class GRS:
         @self.pt.single_timeit
         def baseline_training():
             #Pass data to, and do something with the functs of baseline_training
-            baseline_training()
+            print("Called Baseline_Training")
+        baseline_training()
 
     def write_output(self):
         @self.pt.single_timeit
