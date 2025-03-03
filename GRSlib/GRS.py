@@ -29,6 +29,7 @@ class GRS:
 
         # Instantiate other backbone attributes.
         self.basis = basis(self.config.sections["BASIS"].descriptor, self.pt, self.config) if "BASIS" in self.config.sections else None
+        print(self.basis)
         #self.convert = convert(self.pt,self.config)
 
         # Check LAMMPS version if using nonlinear solvers.
