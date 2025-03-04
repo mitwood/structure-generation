@@ -15,14 +15,14 @@ try:
             super().__init__(name, config, pt, infile, args)
             
             allowedkeys = ['descriptor', 'numTypes', 'ranks', 'lmax', 'nmax', 'mumax', 'nmaxbase', 'rcutfac', 'lambda', 
-                          'type', 'bzeroflag', 'erefs', 'rcinner', 'drcinner', 'RPI_heuristic', 'lmin', 
+                          'elements', 'bzeroflag', 'erefs', 'rcinner', 'drcinner', 'RPI_heuristic', 'lmin', 
                           'bikflag', 'dgradflag','wigner_flag','b_basis','manuallabs']
             for value_name in config['BASIS']:
                 if value_name in allowedkeys: continue
                 else:
                     raise RuntimeError(">>> Found unmatched variable in BASIS section of input: ",value_name)
-            self.numtypes = self.get_value("BASIS", "descriptor", "ACE")
-            self.numtypes = self.get_value("BASIS", "numTypes", "1", "int")
+            self.descriptor = self.get_value("BASIS", "descriptor", "ACE")
+            self.numtypes = len(self.get_value("BASIS", "elements", "H"))
             self.ranks = self.get_value("BASIS","ranks","3").split()
             self.lmin = self.get_value("BASIS", "lmin", "0").split() 
             self.lmax = self.get_value("BASIS", "lmax", "2").split()
@@ -33,16 +33,16 @@ try:
             self.lmbda = self.get_value("BASIS","lambda",'1.35').split()
             self.rcinner = self.get_value("BASIS","rcinner",'0.0').split()
             self.drcinner = self.get_value("BASIS","drcinner",'0.01').split()
-            self.types = self.get_value("BASIS", "type", "H").split()
-            self.mumax = len(self.types)
+            self.elements = self.get_value("BASIS", "elemnents", "H").split()
+            self.mumax = len(self.elements)
             #self.erefs = self.get_value("ACE", "erefs", "0.0").split() 
-            self.erefs = [0.0] * len(self.types)
+            self.erefs = [0.0] * len(self.elements)
             self.bikflag = self.get_value("BASIS", "bikflag", "0", "bool")
             self.dgradflag = self.get_value("BASIS", "dgradflag", "0", "bool")
             self.b_basis = self.get_value("BASIS" , "b_basis" , "pa_tabulated") 
             self.manuallabs = self.get_value("BASIS", "manuallabs", 'None')
             self.type_mapping = {}
-            for i, atom_type in enumerate(self.types):
+            for i, atom_type in enumerate(self.elements):
                 self.type_mapping[atom_type] = i+1
 
             self.bzeroflag = self.get_value("BASIS", "bzeroflag", "0", "bool")
@@ -64,6 +64,29 @@ try:
             self.blank2J = []
             prefac = 1.0
             i = 0
+
+            if self.manuallabs != 'None':
+                with open(self.manuallabs,'r') as readjson:
+                    labdata = json.load(readjson)
+                ranked_chem_nus = [list(ik) for ik in list(labdata.values())]
+            elif self.manuallabs == 'None' and self.b_basis == 'minsub':
+                from fitsnap3lib.lib.sym_ACE.rpi_lib import descriptor_labels_YSG
+                if type(self.lmin) == list:
+                    if len(self.lmin) == 1:
+                        self.lmin = self.lmin * len(self.ranks)
+                    ranked_chem_nus = [descriptor_labels_YSG(int(rnk), int(self.nmax[ind]), int(self.lmax[ind]), int(self.mumax),lmin = int(self.lmin[ind]) ) for ind,rnk in enumerate(self.ranks)]
+                else:
+                    ranked_chem_nus = [descriptor_labels_YSG(int(rnk), int(self.nmax[ind]), int(self.lmax[ind]), int(self.mumax),lmin = int(self.lmin) ) for ind,rnk in enumerate(self.ranks)]
+            elif self.manuallabs == 'None' and self.b_basis == 'pa_tabulated':
+                ranked_chem_nus = []
+                if len(self.lmin) == 1:
+                    self.lmin = self.lmin * len(self.ranks)
+                for ind,rank in enumerate(self.ranks):
+                    rank = int(rank)
+                    PA_lammps, not_compat = pa_labels_raw(rank,int(self.nmax[ind]),int(self.lmax[ind]), int(self.mumax),lmin = int(self.lmin[ind]) )
+                    ranked_chem_nus.append(PA_lammps)
+                    if len(not_compat) > 0:
+                        self.pt.single_print('Functions incompatible with lammps for rank %d : '% rank, not_compat)
 
             highranks = [int(r) for r in self.ranks if int(r) >= 5]
             warnflag = any([ self.lmax_dct[rank] >= 5 and self.lmin[ind] > 1 for ind,rank in enumerate(highranks)])
@@ -113,7 +136,8 @@ try:
         def _write_couple(self):
             @self.pt.sub_rank_zero
             def decorated_write_couple():
-                bondinds=range(len(self.types))
+                reference_ens = [0.0] * len(self.elements)
+                bondinds=range(len(self.elements))
                 bonds = [b for b in itertools.product(bondinds,bondinds)]
                 bondstrs = ['[%d, %d]' % b for b in bonds]
                 assert len(self.lmbda) == len(bondstrs), "must provide rc, lambda, for each BOND type" 
@@ -155,7 +179,7 @@ try:
                         #store them for later so they don't need to be recalculated
                         store_generalized(ccs, coupling_type='wig',L_R=L_R)
 
-                apot = AcePot(self.types, reference_ens, [int(k) for k in self.ranks], [int(k) for k in self.nmax],  [int(k) for k in self.lmax], self.nmaxbase, rcvals, lmbdavals, rcinnervals, drcinnervals, [int(k) for k in self.lmin], self.b_basis, **{'ccs':ccs[M_R]})
+                apot = AcePot(self.elements, reference_ens, [int(k) for k in self.ranks], [int(k) for k in self.nmax],  [int(k) for k in self.lmax], self.nmaxbase, rcvals, lmbdavals, rcinnervals, drcinnervals, [int(k) for k in self.lmin], self.b_basis, **{'ccs':ccs[M_R]})
                 apot.write_pot('coupling_coefficients')
 
             decorated_write_couple()

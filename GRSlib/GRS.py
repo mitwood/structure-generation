@@ -1,5 +1,7 @@
 from GRSlib.parallel_tools import ParallelTools
 from GRSlib.io.input import Config
+from GRSlib.converters.convert_factory import convert
+
 import random
 
 
@@ -28,9 +30,8 @@ class GRS:
         self.config = Config(self.pt, input, arguments_lst=arglist)
 
         # Instantiate other backbone attributes.
-        self.basis = basis(self.config.sections["BASIS"].descriptor, self.pt, self.config) if "BASIS" in self.config.sections else None
-        print(self.basis)
-        #self.convert = convert(self.pt,self.config)
+#        self.basis = basis(self.config.sections["BASIS"].descriptor, self.pt, self.config) if "BASIS" in self.config.sections else None
+        self.convert = convert(self.config.sections['BASIS'].descriptor,self.pt,self.config)
 
         # Check LAMMPS version if using nonlinear solvers.
         if (hasattr(self.pt, "lammps_version")):

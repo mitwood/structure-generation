@@ -3,7 +3,7 @@ from GRSlib.converters.convert import Convert
 import numpy as np
 
 
-class LammpsBase(Convert):
+class Base(Convert):
 
     def __init__(self, name, pt, config):
         super().__init__(name, pt, config)
@@ -23,12 +23,10 @@ class LammpsBase(Convert):
             i: integer index which is optional, mainly for debugging purposes.
         
         Returns: 
-            - A matrix of descriptors depending on settings declared in `CALCULATOR`. If 
+            - A : matrix of descriptors depending on settings declared in `BASIS`. If 
               `bikflag` is 0 (default) then A has 1 and 0s in the first column since it is ready to 
               fit with linear solvers; the descriptors are also divided by no. atoms in this case. 
               If `bikflag` is 1, then A is simply an unaltered per-atom descriptor matrix.
-            - b vector of truths
-            - w vector of weights
         """
         self._data = data
         self._i = i
@@ -53,7 +51,7 @@ class LammpsBase(Convert):
         for line in lmp_setup:
             self._lmp.command(line)
 
-        self._set_box()
+        #self._set_box() #might not need this if reading from file
 
     def _set_neighbor_list(self):
         self._lmp.command("mass * 1.0e-20")

@@ -14,18 +14,10 @@ attributes = [attr for attr in dir(grs) if not attr.startswith('__')]
 print("attr of grs:")
 print(attributes)
 
-attributes = [attr for attr in dir(grs.config) if not attr.startswith('__')]
-print("attr of grs.config:")
-print(attributes)
-
-attributes = [attr for attr in dir(grs.config.sections) if not attr.startswith('__')]
-print("attr of grs.config.sections:")
-print(attributes)
-
-attributes = [attr for attr in dir(grs.config.sections.values) if not attr.startswith('__')]
-print("attr of grs.config.sections.values")
-print(attributes)
+grs.convert()
 
 #print(grs.config.sections["BASIS"].descriptor)
+#grs.config.view_state()
+
 print("!")
 exit()

@@ -1,6 +1,8 @@
 from GRSlib.parallel_tools import ParallelTools
 from GRSlib.converters.convert import Convert
-from GRSlib.converters.lammps_pace import LammpsPace
+from GRSlib.converters.lammps_ace import Ace
+from GRSlib.converters.lammps_base import Base
+#from GRSlib.converters.lammps_snap import Snap
 
 def convert(converter_name, pt, cfg):
     """Converter Factory from (xyz) to (D)"""
@@ -15,19 +17,11 @@ def convert(converter_name, pt, cfg):
 
 def search(converter_name):
     instance = None
-
-    # loop over subclasses 
-
     for cls in Convert.__subclasses__():
-
-        # loop over sublcasses of this subclass (e.g. LammpsBase has LammpsSnap and LammpsPace)
-
-        for cls2 in cls.__subclasses__():
-            if cls2.__name__.lower() == converter_name.lower():
-                instance = Convert.__new__(cls2)
+        if cls.__name__.lower() == converter_name.lower():
+            instance = Convert.__new__(cls)
 
     if instance is None:
-        raise IndexError("{} was not found in descriptor sets available to LAMMPS".format(converter_name))
+        raise IndexError("{} was not found in descriptor types".format(converter_name))
     else:
         return instance
-

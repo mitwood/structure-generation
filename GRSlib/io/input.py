@@ -94,6 +94,78 @@ class Config():
             if not Path(infile_folder+'/'+file_name).is_file():
                 raise RuntimeError("Input file {} not found in {}", file_name, infile_folder)
 
+        elif (self.indict is not None):
+            # We have an input dictionary instead of a file.
+            for key1, data1 in self.indict.items():
+                self._original_config[key1] = {}
+                for key2, data2 in data1.items():
+                    self._original_config[key1]["{}".format(key2)] = str(data2)
+            # Default missing sections to empty dicts which will prompt default values.
+            names = ["ESHIFT", "EXTRAS", "GROUPS", "MEMORY"]
+            for name in names:
+                if name not in self._original_config:
+                    self._original_config[name] = {}
+
+        # Make sections based on input settings.
+        self._set_sections(self._original_config)
+
+    def _set_sections(self, tmp_config):
+        sections = tmp_config.sections()
+        for section in sections:
+            if section == "TEMPLATE":
+                section = "DEFAULT"
+            if section == "BASIC_CALCULATOR":
+                section = "BASIC"
+            self.sections[section] = new_section(section, tmp_config, self.pt, self.infile, self.args)
+
+    def view_state(self, sections: list | str = [], original_input = False):
+        """
+        Print a view to screen of the sections contained in the GRS configuration object in its current state. 
+        When no 'sections' argument is provided, all sections' information will be printed to screen. 
+        If the argument contains invalid section name, it will be printed with a warning, but will not crash.       
+
+        Args:
+            sections: optional list of sections or string of a single section name (i.e. ['BASIS', 'CONSTRAINT']) 
+            original_input: optional, set this value to "True" to view the original input file (saved in self._original_config) instead of the current state. This can be useful for debugging or cloning FitSNAP input settings objects.
+            
+        """
+
+        all_sections = self.sections.keys()
+        if sections == []:
+            chosen_sections = all_sections
+        else:
+            if type(sections) == list:
+                chosen_sections = sections
+            if type(sections) == str:
+                chosen_sections = [sections]
+
+        # ensure all input is all caps
+        chosen_sections = [s.upper() for s in chosen_sections]
+
+        # prepare raw dict outside loop
+        if original_input:
+            return_orig = True
+        else:
+            return_orig = False
+        state_dict = self.convert_to_dict(original_input=return_orig)
+
+        # print chosen sections to screen
+        self.pt.single_print("----> View of GRS settings")
+        for sname in chosen_sections:
+            if sname not in all_sections:
+                self.pt.single_print(f"    {sname}")
+                self.pt.single_print("\tERROR: Section not found! Continuing\n")
+                continue
+            self.pt.single_print(f"    {sname}")
+            if original_input:
+                # this preserves the original, raw input as a dictionary (no added sections or altered variables)
+                vars_dict = state_dict[sname]
+            else:
+                vars_dict = vars(self.sections[sname])
+            for key, val in vars_dict.items():
+                self.pt.single_print("\t{0:20} = {1}".format(key, val))
+            self.pt.single_print("")
+
     def convert_to_dict(self, original_input=False):
         """
         Convert the current config (settings) object to a dictionary. Note that datatypes may not be preserved.
