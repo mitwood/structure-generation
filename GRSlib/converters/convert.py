@@ -1,7 +1,8 @@
-from os import path, listdir, stat
-import numpy as np
-from random import random, seed, shuffle
-from copy import copy
+from GRSlib.parallel_tools import ParallelTools
+from GRSlib.converters.convert import Convert
+from GRSlib.converters.lammps_ace import Ace
+from GRSlib.converters.lammps_base import Base
+#from GRSlib.converters.lammps_snap import Snap
 from ase.io import read, write, lammpsdata
 
 
@@ -23,21 +24,27 @@ class Convert:
         """
         Takes in a lammps-data file and returns an ase.Atoms object
         """
-        ase_data = read(target_fname,format='lammps-data')
+        ase_data = read(data,format='lammps-data')
         return ase_data
 
     def lammps_ace(self,data):
         """
         Takes in an lammps-data file and converts to descriptors in the ACE basis set
         """
+        descriptor_vals = Ace.run_lammps_single(data)
+        return descriptor_vals
 
     def lammps_snap(self,data):
         """
-        Takes in an lammps-data file and converts to descriptors in the SNAP basis set
+        Takes in an lammps-data file and converts to descriptors in the SNAP basis set (Not Implemented ATM)
         """
+        descriptor_vals = Snap.run_lammps_single(data)
+        return descriptor_vals
 
     def lammps_custom(self,data):
         """
-        Takes in an lammps-data file and converts to descriptors in a custom basis set
+        Takes in an lammps-data file and converts to descriptors in a custom basis set (Not Implemented ATM)
         """
+        descriptor_vals = Custom.run_lammps_single(data)
+        return descriptor_vals
 

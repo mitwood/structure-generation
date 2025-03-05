@@ -12,8 +12,7 @@ class Base(Convert):
         self._lmp = None
         self.pt.check_lammps()
 
-
-    def process_single(self, data, i=0):
+#    def process_single(self, data, i=0):
         """
         Calculate descriptors on a single configuration without touching the shared arrays.
 
@@ -28,17 +27,18 @@ class Base(Convert):
               fit with linear solvers; the descriptors are also divided by no. atoms in this case. 
               If `bikflag` is 1, then A is simply an unaltered per-atom descriptor matrix.
         """
-        self._data = data
-        self._i = i
-        self._initialize_lammps()
-        self._prepare_lammps()
-        self._run_lammps()
-        a,b,w = self._collect_lammps_single()
-        self._lmp = self.pt.close_lammps()
-        return a,b,w
+#        self._data = data
+#        self._i = i
+#        self._initialize_lammps()
+#        self._prepare_lammps()
+#        self._run_lammps()
+#        a,b,w = self._collect_lammps_single()
+#        self._lmp = self.pt.close_lammps()
+#        return a,b,w
     
     def _initialize_lammps(self, printlammps=0):
         self._lmp = self.pt.initialize_lammps(self.config.args.lammpslog, printlammps)
+#        self._lmp = self.pt.initialize_lammps('log.lammps',0)
 
     def _set_structure(self):
         self._lmp.command("clear")

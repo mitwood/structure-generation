@@ -31,13 +31,21 @@ class GRS:
 
         # Instantiate other backbone attributes.
 #        self.basis = basis(self.config.sections["BASIS"].descriptor, self.pt, self.config) if "BASIS" in self.config.sections else None
-        self.convert = convert(self.config.sections['BASIS'].descriptor,self.pt,self.config)
+
+        self.convert = convert(self.config.sections['BASIS'].descriptor,self.pt,self.config) 
+        #^ Initialized with the appropiate subclass method defined by user input
 
         # Check LAMMPS version if using nonlinear solvers.
         if (hasattr(self.pt, "lammps_version")):
             if (self.pt.lammps_version < 20220915):
                 raise Exception(f"Please upgrade LAMMPS to 2022-09-15 or later to use MLIAP based structure searching.")
-          
+
+        #Start by converting the target structure to descriptors
+        if self.config.sections['TARGET'].target_fname is None:
+            print('Target structure not found or undefined')
+        else:
+            target_descriptors = self.convert.run_lammps_single(self.config.sections['TARGET'].target_fname)
+
     def __del__(self):
         """Override deletion statement to free shared arrays owned by this instance."""
         self.pt.free()
@@ -53,25 +61,39 @@ class GRS:
         else:
             super().__setattr__(name, value)
 
-    def converters(self):
+    def convert_to_desc(self):
         """
         Accepts a structure (xyz) as input and will return descriptors (D), optionally will convert
         between file types (xyz=lammps-data, ase.Atoms, etc)
         """
         @self.pt.single_timeit
-        def converters():
+        def convert_to_desc():
             #Pass data to, and do something with the functs of convert
-            self.convert.lammps_pace(self.data)
-            print("Called Convert")
-        converters()
-    
+            self.convert.run_lammps_single(self.data)
+            print("Called Convert To Descriptors")
+        self.descriptors = convert_to_desc()
+
+    def propose_structure(self):
+        """
+        Propose new structure from random, ase, or templates.
+        """
+        @self.pt.single_timeit
+        def propose_structure():
+            #1)
+            print("Called Propose_Structure")
+        propose_structure()
+
     def genetic_move(self):
         """
-        Propose new structure, or adapt existing ones using a set of moves sampled via a genetic algorithm
+        Hybridize or mutate a structure using a set of moves sampled via a genetic algorithm
         """
         @self.pt.single_timeit
         def genetic_move():
-            #Pass data to, and do something with the functs of genetic_move
+            #1) Propose a set of structures from templates, ase, or random (or read in a list of ase.Aatoms objects)
+            #2) Score each of the candidates (ase_to_lammps -> run_single)
+            #3) Hybridize, Mutate based on set of rules and probabilities
+            #4) Store socring information with best-of-generation and best-overall isolated
+            #5) Loop until generation limit or scoring residual below threshold
             print("Called Genetic_Move")
         genetic_move()
 
@@ -82,7 +104,11 @@ class GRS:
         """
         @self.pt.single_timeit
         def gradient_move():
-            #Pass data to, and do something with the functs of gradient_move
+            #1) Take in target descriptors, convert to moments of descriptor distribution
+            #2) Take in current descriptors, convert to moments of descriptor distribution
+            #3) Construct a fictitious potential energy surface based on difference in moments
+            #4) Assemble a LAMMPS input script that overlaps potentials and runs dynamics
+            #5) Return an updated structure and scoring on the difference in moments
             print("Called Gradient_Move")
         gradient_move()
 
@@ -93,7 +119,9 @@ class GRS:
         """
         @self.pt.single_timeit
         def baseline_training():
-            #Pass data to, and do something with the functs of baseline_training
+            #This is more of a 'super' function because it will call many other routines to give the result of a
+            #baseline training set with many (hundreds? thousands?) candidate structures. Should return a score
+            #of the training diversity based on moments of the descriptor distribution.
             print("Called Baseline_Training")
         baseline_training()
 

@@ -2,7 +2,7 @@
 descriptor = ACE
 numTypes = 1
 elements = W
-rcutfac = 5.0
+rcutfac = 5.5
 ranks = 1 2 3
 lmax = 0 3 3
 lmin = 0 0 0
@@ -25,7 +25,7 @@ population_size = 20
 ngenerations = 10
 
 [SCORING]
-moments = 1 2 3 4    # mean, std, skew, kurt
+moments = mean stdev skew  kurt
 moments_coeff = 1 0.1 0.01 0.001 
 moment_bonus = 1 5 10 20
 moments_cross_coeff = 1 0.1 0.01 0.001 
@@ -34,8 +34,8 @@ attractor_target = True
 exact_distribution = False # Read in a stock structure and match exactly
 
 [TARGET]
-target_fname = '../bcc.data'
-start_fname = '../bcc.data'
+target_fname = 'bcc.data'
+start_fname = 'bcc.data'
 
 [CONSTRAINT]
 masses = {1: 183.84}

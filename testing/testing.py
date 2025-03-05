@@ -10,14 +10,20 @@ nprocs = comm.Get_size()
 settings = "../GenericInput.in"
 grs = GRS(settings, comm=comm)
 
-attributes = [attr for attr in dir(grs) if not attr.startswith('__')]
-print("attr of grs:")
-print(attributes)
-
-grs.convert()
-
-#print(grs.config.sections["BASIS"].descriptor)
+#testing of io class
 #grs.config.view_state()
+#-----------------------
+
+#testing of convert class
+attributes = [attr for attr in dir(grs.convert) if not attr.startswith('__')]
+print("attr of grs.convert:")
+print(attributes)
+atoms = grs.convert.lammps_to_ase('bcc.data')
+print(atoms)
+file = grs.convert.ase_to_lammps(atoms)
+print(file)
+grs.convert.run_lammps_single('bcc.data')
+#-----------------------
 
 print("!")
 exit()
