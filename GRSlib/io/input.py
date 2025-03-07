@@ -10,7 +10,7 @@ import random
 class Config():
     """ 
     Class for storing input settings in a `config` instance. The `config` instance is first created 
-    in `io/output.py`. If given a path to an input script, we use Python's native ConfigParser 
+    in `io/input.py`. If given a path to an input script, we use Python's native ConfigParser 
     to parse the settings. If given a nested dictionary, the sections are determined from the 
     first keys and specific settings from the nested keys.
 
@@ -48,10 +48,10 @@ class Config():
 
     def parse_cmdline(self, arguments_lst: list = []):
         """ Parse command line args if using executable mode, or a list if using library mode. """
-        parser = argparse.ArgumentParser(prog="fitsnap3")
+        parser = argparse.ArgumentParser(prog="GRS")
         if (self.input is None):
             parser.add_argument("infile", action="store",
-                                help="Input file with bispectrum etc. options")
+                                help="Input file with basis, target, etc. options")
 
         # Optional args.
         parser.add_argument("--lammpslog", "-l", action="store_true", dest="lammpslog",
@@ -61,7 +61,7 @@ class Config():
         parser.add_argument("--verbose", "-v", action="store_true", dest="verbose",
                             default=False, help="Show more detailed information about processing")
         parser.add_argument("--screen", "-sc", action="store_false", dest="screen",
-                            help="Print fitsnap output to screen.")
+                            help="Print GRS output to screen.")
         if arguments_lst:
             # If arg list is not empty we are feeding in arguments with library mode, and args should be parse 
             # according to this list.

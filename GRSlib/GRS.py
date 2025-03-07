@@ -1,9 +1,10 @@
 from GRSlib.parallel_tools import ParallelTools
 from GRSlib.io.input import Config
 from GRSlib.converters.convert_factory import convert
+from GRSlib.motion.scoring import Scoring
 
 import random
-
+import numpy as np
 
 class GRS:
     """ 
@@ -28,23 +29,22 @@ class GRS:
         self.pt = ParallelTools(comm=comm)
         self.pt.all_barrier()
         self.config = Config(self.pt, input, arguments_lst=arglist)
+        self.target_desc = []
+        self.current_desc = []
 
-        # Instantiate other backbone attributes.
-#        self.basis = basis(self.config.sections["BASIS"].descriptor, self.pt, self.config) if "BASIS" in self.config.sections else None
-
-        self.convert = convert(self.config.sections['BASIS'].descriptor,self.pt,self.config) 
-        #^ Initialized with the appropiate subclass method defined by user input
+#       Instantiate other backbone attributes.
+#       self.basis = basis(self.config.sections["BASIS"].descriptor, self.pt, self.config) if "BASIS" in self.config.sections else None
 
         # Check LAMMPS version if using nonlinear solvers.
         if (hasattr(self.pt, "lammps_version")):
             if (self.pt.lammps_version < 20220915):
                 raise Exception(f"Please upgrade LAMMPS to 2022-09-15 or later to use MLIAP based structure searching.")
 
-        #Start by converting the target structure to descriptors
+        #Convert initial target structure if available
         if self.config.sections['TARGET'].target_fname is None:
             print('Target structure not found or undefined')
         else:
-            target_descriptors = self.convert.run_lammps_single(self.config.sections['TARGET'].target_fname)
+            self.target_desc = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
 
     def __del__(self):
         """Override deletion statement to free shared arrays owned by this instance."""
@@ -61,17 +61,34 @@ class GRS:
         else:
             super().__setattr__(name, value)
 
-    def convert_to_desc(self):
+    def convert_to_desc(self,data):
         """
         Accepts a structure (xyz) as input and will return descriptors (D), optionally will convert
         between file types (xyz=lammps-data, ase.Atoms, etc)
         """
-        @self.pt.single_timeit
-        def convert_to_desc():
-            #Pass data to, and do something with the functs of convert
-            self.convert.run_lammps_single(self.data)
-            print("Called Convert To Descriptors")
-        self.descriptors = convert_to_desc()
+        #Pass data to, and do something with the functs of convert
+        print("Called Convert To Descriptors for %s" % data)
+        self.convert = convert(self.config.sections['BASIS'].descriptor,self.pt,self.config) 
+        descriptors = self.convert.run_lammps_single(data)
+            
+        return descriptors
+
+    def get_score(self,data):
+        """
+        Accepts a structure (xyz) as input and will return descriptors (D), optionally will convert
+        between file types (xyz=lammps-data, ase.Atoms, etc)
+        """
+        #Pass data to, and do something with the functs of scoring
+        self.current_desc = self.convert_to_desc(data)
+        if (np.shape(self.current_desc)==np.shape(self.target_desc)):
+            print("Called Scoring Function")
+        else:
+            raise RuntimeError(">>> Found unmatched for target and current descriptors")
+
+        self.score = Scoring(data, self.current_desc, self.target_desc, self.pt, self.config) 
+        score = self.score.get_score()
+            
+        return score
 
     def propose_structure(self):
         """
@@ -128,10 +145,7 @@ class GRS:
     def write_output(self):
         @self.pt.single_timeit
         def write_output():
-            if not self.config.args.perform_fit:
-                return
-            self.output.output(self.solver.fit, self.solver.errors)
-
+            print("Doing some output now")
             #self.output.write_lammps(self.solver.fit)
             #self.output.write_errors(self.solver.errors)
         write_output()

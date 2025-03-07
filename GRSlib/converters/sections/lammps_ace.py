@@ -1,5 +1,5 @@
 from GRSlib.converters.convert import Convert
-from GRSlib.converters.lammps_base import Base, _extract_compute_np
+from GRSlib.converters.sections.lammps_base import Base, _extract_compute_np
 import numpy as np
 
 class Ace(Convert):

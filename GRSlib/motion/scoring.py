@@ -1,68 +1,110 @@
 from GRSlib.parallel_tools import ParallelTools
-from GRSlib.motion import moments
+from GRSlib.motion.lossfunc import moments
+import lammps, lammps.mliap
+from lammps.mliap.loader import *
 from jax import grad, jit
+from functools import partial
 
 #Scoring has to be a class within motion because we want a consistent reference for scores, ans this
 #refrence will be LAMMPS using a constructed potential energy surface from the representation loss function
 
-
-
 class Scoring:
 
-    def __init__(self, data, pt, config):
+    def __init__(self, data, current_desc, target_desc, pt, config):
         self.pt = pt #ParallelTools()
         self.config = config #Config()
         #Bring in the target and current descriptors here, will be with self. then
         #descriptors_flt = descriptors.flatten()
-        self.current_desc = None
-        self.target_desc = None
-        self.first_mom = None
-        self.second_mom = None
-        self.third_mom = None
-        self.fourth_mom = None
-        self.loss_ff = 0.0 #set to a constant term to initialise
+        self.current_desc = current_desc
+        self.target_desc = target_desc
+        self.data = data
+        #self.loss_ff = 0.0 #set to a constant term to initialise
 
     @partial(jit, static_argnums=(0))
-    def loss_function(self,pt,config):
+    def loss_function(self):
         #construct the Jax graph to hand off to lammps
-        if (any(self.config.sections['SCORING'].moments) == 'mean'):
+        first_mom = None
+        second_mom = None
+        third_mom = None
+        fourth_mom = None
+        set_of_moments = []
+        if (any(x == 'mean' for x in self.config.sections['SCORING'].moments)):
             print("Adding mean to loss function force field")
-            self.first_mom = moments.first_moment(self)
-        if (any(self.config.sections['SCORING'].moments) == 'stdev'):
+            first_mom = moments.first_moment(self)
+        if (any(x == 'stdev' for x in self.config.sections['SCORING'].moments)):
             print("Adding standard deviation to loss function force field")
-            self.second_mom = moments.second_moment(self)
-        if (any(self.config.sections['SCORING'].moments) == 'skew'):
+            second_mom = moments.second_moment(self)
+        if (any(x == 'skew' for x in self.config.sections['SCORING'].moments)):
             print("Adding skewness to loss function force field")
-            self.third_mom = moments.third_moment(self)
-        if (any(self.config.sections['SCORING'].moments) == 'kurt'):
+            third_mom = moments.third_moment(self)
+        if (any(x == 'kurt' for x in self.config.sections['SCORING'].moments)):
             print("Adding kurtosis to loss function force field")
-            self.fourth_mom = moments.fourth_moment(self)
-        set_of_moments = [self.first_mom, self.second_mom, self.third_mom, self.fourth_mom]
+            fourth_mom = moments.fourth_moment(self)
+        for item in [second_mom, third_mom, fourth_mom]: 
+            if item != None:
+                    set_of_moments.append(item)
+        loss_ff = first_mom
         for item in set_of_moments:
-            if item!=None:
-                self.loss_ff += item
-        return self.loss_ff, grad(self.loss_ff)
+             loss_ff += item
+#        return loss_ff, grad(loss_ff)
+        return loss_ff
+    #, grad(first_mom)
 
-    def get_atomic_energies(self):
-        #Return as array per-atom energies for the set of potentials applied
-        self._lmp = self.pt.initialize_lammps(self.config.args.lammpslog, printlammps)
+    def construct_lmp(self):
+        #Generates the major components of a lammps script needed for a scoring call
+        self._lmp = self.pt.initialize_lammps('log.lammps',0)
         lammps.mliap.activate_mliappy(self._lmp)
+
+#        me = self._lmp.extract_setting("world_rank")
+#        nprocs = self._lmp.extract_setting("world_size")
+#        cmds = ["-screen", "none", "-log", "none"]
+#        self._lmp = lammps(cmdargs = cmds)
 
         self._lmp.command("clear")
         self._lmp.command("units metal")
         self._lmp.command("atom_style atomic")
+        self._lmp.command("read_data %s" % self.data)
+        #TODO make the possibility to import any reference potential to be used with the mliap one
+#            self._lmp.command("pair_style hybrid/overlay soft %2.3f mliap model mliappy LATER descriptor ace coupling_coefficients.yace" % something)
+#            self._lmp.command("pair_coeff * * soft %f" % something)
+        self._lmp.command("pair_style mliap model mliappy LATER descriptor ace coupling_coefficients.yace")
 
-        lammps.mliap.load_model(self.model)
+        self._lmp.command('neighbor  2.3 bin')
+        self._lmp.command("neigh_modify one 10000")
+#        loss_ff, grad_loss_ff = self.loss_function()
+        loss_ff = self.loss_function()
+        lammps.mliap.load_model(loss_ff)
+
+    def get_atomic_energies(self):
+        #Return as array per-atom energies for the set of potentials applied
+        self.construct_lmp()
+        self._lmp.command("compute peatom all pe/atom")
+        self._lmp.commands_string("run 0")
+        num_atoms = self._lmp.extract_global("natoms")
+        atom_energy = _extract_compute_np(self._lmp, "peatom", 0, 2, (num_atoms, 1))
         del self._lmp
+        return atom_energy
 
     def get_norm_forces(self):
         #Return as array per-atom forces 
-        self._lmp = self.pt.initialize_lammps(self.config.args.lammpslog, printlammps)
+        self.construct_lmp()
+        self._lmp.command("compute fatom all property/atom fx fy fz")
+        self._lmp.commands_string("run 0")
+        num_atoms = self._lmp.extract_global("natoms")
+        atom_forces = _extract_compute_np(self._lmp, "fatom", 0, 2, (num_atoms, 3))        
         del self._lmp
+        return atom_forces
 
     def get_score(self):
         #Return as array unweighted scores per moment
+        self.construct_lmp()
+        self._lmp.commands_string("run 0")
+        score = self._lmp.get_thermo("pe") # potential energy
+        del self._lmp
+        return score
 
-        self.lmp.commands_string("run 0")
-        result = self.lmp.get_thermo("pe") # potential energy
-
+    def _extract_commands(self,string):
+        #Can be given a block of text where it will split them into individual commands
+        lmp_setup = [x for x in string.splitlines() if x.strip() != '']
+        for line in lmp_setup:
+                self._lmp.command(line)

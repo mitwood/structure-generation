@@ -1,13 +1,13 @@
-from GRSlib.parallel_tools import ParallelTools
+#from GRSlib.parallel_tools import ParallelTools
 from GRSlib.converters.convert import Convert
-from GRSlib.converters.lammps_ace import Ace
-from GRSlib.converters.lammps_base import Base
+from GRSlib.converters.sections.lammps_ace import Ace
+from GRSlib.converters.sections.lammps_base import Base
 #from GRSlib.converters.lammps_snap import Snap
 
 def convert(converter_name, pt, cfg):
     """Converter Factory from (xyz) to (D)"""
     instance = search(converter_name)
-    #pt = ParallelTools()
+
     if cfg.args.verbose:
         pt.single_print("Using {} as Descriptors from".format(converter_name))
 

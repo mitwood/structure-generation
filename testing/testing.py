@@ -15,15 +15,19 @@ grs = GRS(settings, comm=comm)
 #-----------------------
 
 #testing of convert class
-attributes = [attr for attr in dir(grs.convert) if not attr.startswith('__')]
-print("attr of grs.convert:")
-print(attributes)
+#attributes = [attr for attr in dir(grs.convert) if not attr.startswith('__')]
+#print("attr of grs.convert:")
+#print(attributes)
+
 atoms = grs.convert.lammps_to_ase('bcc.data')
-print(atoms)
+#print(atoms)
 file = grs.convert.ase_to_lammps(atoms)
-print(file)
-grs.convert.run_lammps_single('bcc.data')
+#print(file)
+#grs.convert.run_lammps_single('bcc.data')
+current_desc = grs.convert_to_desc(file)
 #-----------------------
 
+score = grs.get_score('bcc.data')
+print(score)
 print("!")
 exit()

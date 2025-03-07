@@ -37,8 +37,8 @@ class Base(Convert):
 #        return a,b,w
     
     def _initialize_lammps(self, printlammps=0):
-        self._lmp = self.pt.initialize_lammps(self.config.args.lammpslog, printlammps)
-#        self._lmp = self.pt.initialize_lammps('log.lammps',0)
+#        self._lmp = self.pt.initialize_lammps(self.config.args.lammpslog, printlammps)
+        self._lmp = self.pt.initialize_lammps('log.lammps',0)
 
     def _set_structure(self):
         self._lmp.command("clear")

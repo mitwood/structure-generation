@@ -1,8 +1,4 @@
 from GRSlib.parallel_tools import ParallelTools
-from GRSlib.converters.convert import Convert
-from GRSlib.converters.lammps_ace import Ace
-from GRSlib.converters.lammps_base import Base
-#from GRSlib.converters.lammps_snap import Snap
 from ase.io import read, write, lammpsdata
 
 
