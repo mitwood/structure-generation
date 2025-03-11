@@ -2,6 +2,7 @@ from GRSlib.parallel_tools import ParallelTools
 from GRSlib.io.input import Config
 from GRSlib.converters.convert_factory import convert
 from GRSlib.motion.scoring import Scoring
+from GRSlib.motion.motion import Gradient, Genetic
 
 import random
 import numpy as np
@@ -100,34 +101,59 @@ class GRS:
             print("Called Propose_Structure")
         propose_structure()
 
-    def genetic_move(self):
+    def genetic_move(self,data):
         """
         Hybridize or mutate a structure using a set of moves sampled via a genetic algorithm
         """
-        @self.pt.single_timeit
-        def genetic_move():
-            #1) Propose a set of structures from templates, ase, or random (or read in a list of ase.Aatoms objects)
-            #2) Score each of the candidates (ase_to_lammps -> run_single)
-            #3) Hybridize, Mutate based on set of rules and probabilities
-            #4) Store socring information with best-of-generation and best-overall isolated
-            #5) Loop until generation limit or scoring residual below threshold
-            print("Called Genetic_Move")
-        genetic_move()
+#        @self.pt.single_timeit
+#        def genetic_move():
+#        genetic_move()
+        #1) Propose a set of structures from templates, ase, or random (or read in a list of ase.Aatoms objects)
+        #2) Score each of the candidates (ase_to_lammps -> run_single)
+        #3) Hybridize, Mutate based on set of rules and probabilities
+        #4) Store socring information with best-of-generation and best-overall isolated
+        #5) Loop until generation limit or scoring residual below threshold
+        print("Called Genetic_Move")
 
-    def gradient_move(self):
+        if data == None:
+            data = self.propose_structure()
+
+        self.current_desc = self.convert_to_desc(data) 
+        self.genmove = Genetic(data, self.current_desc, self.target_desc, self.pt, self.config) 
+        self.genmove.something_here()
+
+    def gradient_move(self,data):
         """
         Accepts a structure (xyz, ase.Atoms) as input and will return updated structure (xyz, ase.Atoms) that 
         has been modified by motion of atoms on the loss function potential
         """
-        @self.pt.single_timeit
-        def gradient_move():
-            #1) Take in target descriptors, convert to moments of descriptor distribution
-            #2) Take in current descriptors, convert to moments of descriptor distribution
-            #3) Construct a fictitious potential energy surface based on difference in moments
-            #4) Assemble a LAMMPS input script that overlaps potentials and runs dynamics
-            #5) Return an updated structure and scoring on the difference in moments
-            print("Called Gradient_Move")
-        gradient_move()
+#        @self.pt.single_timeit 
+#        def gradient_move():
+#        gradient_move()
+        #1) Take in target descriptors, convert to moments of descriptor distribution
+        #2) Take in current descriptors, convert to moments of descriptor distribution
+        #3) Construct a fictitious potential energy surface based on difference in moments
+        #4) Assemble a LAMMPS input script that overlaps potentials and runs dynamics
+        #5) Return an updated structure and scoring on the difference in moments
+        print("Called Gradient_Move")
+        
+        if data == None:
+            data = self.propose_structure()
+        
+        self.current_desc = self.convert_to_desc(data)
+        self.gradmove = Gradient(data, self.current_desc, self.target_desc, self.pt, self.config) 
+        if self.config.sections['MOTION'].min_type == 'fire':
+            before_score, after_score = self.gradmove.fire_min()
+            print(before_score, after_score)
+        elif self.config.sections['MOTION'].min_type == 'line':
+            before_score, after_score = self.gradmove.line_min()
+            print(before_score, after_score)
+        elif self.config.sections['MOTION'].min_type == 'box':
+            before_score, after_score = self.gradmove.box_min()
+            print(before_score, after_score)
+        elif self.config.sections['MOTION'].min_type == 'temp':
+            before_score, after_score = self.gradmove.run_then_min()
+            print(before_score, after_score)
 
     def baseline_training(self):
         """

@@ -33,7 +33,7 @@ try:
             self.lmbda = self.get_value("BASIS","lambda",'1.35').split()
             self.rcinner = self.get_value("BASIS","rcinner",'0.0').split()
             self.drcinner = self.get_value("BASIS","drcinner",'0.01').split()
-            self.elements = self.get_value("BASIS", "elemnents", "H").split()
+            self.elements = self.get_value("BASIS", "elements", "H").split()
             self.mumax = len(self.elements)
             #self.erefs = self.get_value("ACE", "erefs", "0.0").split() 
             self.erefs = [0.0] * len(self.elements)

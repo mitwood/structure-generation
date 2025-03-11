@@ -27,7 +27,7 @@ def second_moment(self):
 
 @partial(jit, static_argnums=(0))
 def third_moment(self):
-    #Showing my work for Pearsons skew = (3(mean-median)/stdev)
+    #Showing my work for Pearsons skew = (3(mean-median)/stdev))
     current_avg = jnp.average(self.current_desc, axis=0)
     target_avg = jnp.average(self.target_desc, axis=0)
     current_std = jnp.std(self.current_desc, axis=0)
