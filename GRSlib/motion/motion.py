@@ -1,6 +1,7 @@
 from GRSlib.parallel_tools import ParallelTools
 from GRSlib.motion.scoring import Scoring
 import numpy as np
+import random
 
 #Scoring has to be a class within motion because we want a consistent reference for scores, ans this
 #refrence will be LAMMPS using a constructed potential energy surface from the representation loss function
@@ -19,8 +20,6 @@ class Gradient:
         if self.n_elements > 1:
             current_desc = current_desc.flatten()
             target_desc = target_desc.flatten()
-        print(np.shape(current_desc),np.shape(target_desc))
-        #self.loss_ff = 0.0 #set to a constant term to initialise
 
     def fire_min(self):
         #Will construct a set of additional commands to send to LAMMPS before scoring
@@ -73,81 +72,122 @@ class Gradient:
 
 class Genetic:
 
-    def __init__(self, data, current_desc, target_desc, pt, config):
+    def __init__(self, pt, config, **kwargs):
         self.pt = pt #ParallelTools()
         self.config = config #Config()
-        #Bring in the target and current descriptors here, will be with self. then
-        #descriptors_flt = descriptors.flatten()
-        self.current_desc = current_desc
-        self.target_desc = target_desc
-        self.data = data
-        self.n_elements = self.config.sections['BASIS'].numtypes
-        if self.n_elements > 1:
-            current_desc = current_desc.flatten()
-            target_desc = target_desc.flatten()
-        print(np.shape(current_desc),np.shape(target_desc))
-        #self.loss_ff = 0.0 #set to a constant term to initialise
 
-    def crossover(p1, p2, inputseed = None, types=None, endpoint_compositions=False):
-        if endpoint_compositions or types==None:
-            assert len(p1) == len(p2), "parents must have the same length"
-            psize = len(p1)
+    def crossover(parent1, parent2, **kwargs):
+        if target_comps or types==None:
+            assert len(parent1) == len(parent2), "parents must have the same length"
+            #TODO Need a way to propose another parent, or force a choice of size
+            #Call back to tourny selection and get a new candidate
+            psize = len(parent1)
             if inputseed != None:
                 np.random.seed(inputseed)
             cross_point = np.random.randint(1, psize-1)
-            c1 = p1[:cross_point] + p2[cross_point:]
-            c2 = p2[:cross_point] + p1[cross_point:]
+            child1 = parent1[:cross_point] + parent2[cross_point:]
+            child2 = parent2[:cross_point] + parent1[cross_point:]
         else:
-            assert len(p1) == len(p2), "parents must have the same length"
-            itr = 0
-            comps_dct1 = get_comp(p1,types)
+            assert len(parent1) == len(parent2), "parents must have the same length"
+            #TODO Need a way to propose another parent, or force a choice of size
+            #Call back to tourny selection and get a new candidate
+            comps_dct1 = self.get_comp(parent1,types)
             comp_vals1 = list(comps_dct1.values())
-            comps_dct2 = get_comp(p2,types)
+            comps_dct2 = self.get_comp(parent2,types)
             comp_vals2 = list(comps_dct2.values())
             while itr == 0 or any([icomp == 0.0 for icomp in comp_vals1]) or any([icomp == 0.0 for icomp in comp_vals2]):
-                psize = len(p1)
+                psize = len(parent1)
                 if inputseed != None:
                     np.random.seed(inputseed)
                 cross_point = np.random.randint(1, psize-1)
-                c1 = p1[:cross_point] + p2[cross_point:]
-                c2 = p2[:cross_point] + p1[cross_point:]
-                comps_dct1 = get_comp(c1,types)
+                child1 = parent1[:cross_point] + parent2[cross_point:]
+                child2 = parent2[:cross_point] + parent1[cross_point:]
+                comps_dct1 = self.get_comp(child1,types)
                 comp_vals1 = list(comps_dct1.values())
-                comps_dct2 = get_comp(c2,types)
+                comps_dct2 = self.get_comp(child2,types)
                 comp_vals2 = list(comps_dct2.values())
                 itr += 1
-        return [c1, c2]
+        return [child1, child2]
 
-    def mutation(current_atoms,mutation_type='perturb_N',types=['Ag'],scale=0.5):
-        mutation_types = {
-        'perturb_one' : perturb_one_atom,
-        'perturb_N' : perturb_N_atoms,
-        'flip_one' : flip_one_atom,
-        'flip_N' : flip_N_atoms,
-        }
+    def mutation(self, **kwargs):
+        # TODO from config, find the set of choices, roll dice and then call down to density/perturbation/alchemy
+        chosen_mutation  = 'add_atom'
+        (chosen_mutation)()
+
+
         if 'flip' in mutation_type:
             return mutation_types[mutation_type](current_atoms,types)
         else:
             return mutation_types[mutation_type](current_atoms,scale)
+        
 
-    def tournament_selection(population, scores, k=3, inputseed=None):
-        if inputseed != None:
-            np.random.seed(inputseed)
-        selection_ix = np.random.randint(len(population))
-        for ix in np.random.randint(0, len(population), k-1):
-            # check if better (e.g. perform a tournament)
-            if scores[ix] < scores[selection_ix]:
-                selection_ix = ix
-        return population[selection_ix]
+        #This def can be cleaner, with a func call dependent on choice
+        #if '' == add_atom:
+        #    density.add_atom()
+        #if '' == del_atom:
+        #    density.remove_atom()
+        #if '' == change_cell:
+        #    density.change_cell()
+        # ...
 
-    def variable_tournament_selection(population, scores, k=6, inputseed=None):
-        if inputseed != None:
-            np.random.seed(inputseed)
-        selection_ix = np.random.randint(len(population))
-        for ix in np.random.randint(0, len(population), k-1):
-            # check if better AND dissimilar (e.g. perform a tournament)
-            if scores[ix] < scores[selection_ix] and scores[ix] != scores[selection_ix]:
-                selection_ix = ix
-        return population[selection_ix]
+    def tournament_selection(self, **kwargs):
+        scores = []
+        for candidate in len(population):
+            scores.append(Scoring.get_score(population[candidate]))
+        selection = population.copy()
 
+        # Pick 2 indicies to compare and add the best of
+        # to the selection list (e.g. perform a tournament)
+        #Allow for a scoring anomoly at some low rate? else return min(scores)?
+        for round in len(selection)-1:
+            compare_pair = np.random.randint(0, len(selection), 2)
+            if scores[compare_pair[0]] <= scores[compare_pair[1]]:
+                loser = compare_pair[1]
+                selection.pop(loser)
+            else:
+                loser = compare_pair[0]
+                selection.pop(loser)
+        if np.random.rand() < self.config.sections['GENETIC'].mutation_rate:
+            nextgen_selection = self.mutation(selection) #Will mutation only take in one structure?
+        else:
+            nextgen_selection = self.crossover(selection) #Should have two structures
+        return nextgen_selection
+
+    def unique_tournament_selection(self, **kwargs):
+        #This should be the default since we dont want to send duplicates the crossover/mutation
+        scores = []
+        for candidate in len(population):
+            scores.append(Scoring.get_score(population[candidate]))
+        selection = []
+        for candidate in population:
+            if candidate not in selection:
+                selection.append(candidate)
+        # The structures to chose from should now only contain unique candidates, determined by score        
+
+        # Pick 2 indicies to compare and add the best of
+        # to the selection list (e.g. perform a tournament)
+        #Allow for a scoring anomoly at some low rate? else return min(scores)?
+        for round in len(selection)-1:
+            compare_pair = np.random.randint(0, len(selection), 2)
+            if scores[compare_pair[0]] <= scores[compare_pair[1]]:
+                loser = compare_pair[1]
+                selection.pop(loser)
+            else:
+                loser = compare_pair[0]
+                selection.pop(loser)
+        if np.random.rand() < self.config.sections['GENETIC'].mutation_rate:
+            nextgen_selection = self.mutation(selection) #Will mutation only take in one structure?
+        else:
+            nextgen_selection = self.crossover(selection) #Should have two structures
+        return nextgen_selection
+
+    def get_comp(self, atoms, symbols):
+        comps = {symbol: 0.0 for symbol in symbols}
+        counts = {symbol: 0 for symbol in symbols}
+        atsymbols = [atom.symbol for atom in atoms]
+        for atsymbol in atsymbols:
+            counts[atsymbol] +=1
+        for symbol in symbols:
+            comps[symbol] = counts[symbol]/len(atoms)
+        return comps
 

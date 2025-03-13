@@ -47,3 +47,9 @@ def add_atom(atoms,symbols,tol = 0.5):
     atoms.append(Atom(symbol,rnd_pos))
     return atoms
 
+def remove_atom(atoms,symbols,tol = 0.5):
+    blmin = closest_distances_generator(atom_numbers=[atomic_numbers[symbol] for symbol in symbols] + [atomic_numbers['Ne']], ratio_of_covalent_radii=0.5)
+    return atoms
+
+def change_cell():
+    return atoms

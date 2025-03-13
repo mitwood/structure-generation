@@ -1,3 +1,8 @@
+from ase import Atoms,Atom
+from ase.io import read,write
+from ase.ga.utilities import closest_distances_generator, CellBounds
+from ase.data import atomic_numbers, atomic_names, atomic_masses, covalent_radii
+from ase.neighborlist import primitive_neighbor_list
 
 
 def perturb_one_atom(atoms,scale=0.5,max_attempt=100,apply_to='ase'):

@@ -19,9 +19,9 @@ min_type = "line" #line/temp/box/fire
 randomize_comps = False # flag to use randomized compositions for elements in the dictionary: target_comps = {'Cr':1.0 }
 
 [GENETIC]
-mutation_rate = 0.50
+mutation_rate = 0.50 
 mutation_types = {'perturb_one': 0.5, 'perturb_N' : 0.5, 'flip_one': 0.0, 'flip_N': 0.0, 'create_one' : 0.0, 'delete_one' : 0.0}
-population_size = 20
+population_size = 20 
 ngenerations = 10
 
 [SCORING]

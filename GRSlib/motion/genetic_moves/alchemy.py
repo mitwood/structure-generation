@@ -1,14 +1,8 @@
-
-
-def get_comp(atoms,symbols):
-    comps = {symbol: 0.0 for symbol in symbols}
-    counts = {symbol: 0 for symbol in symbols}
-    atsymbols = [atom.symbol for atom in atoms]
-    for atsymbol in atsymbols:
-        counts[atsymbol] +=1
-    for symbol in symbols:
-        comps[symbol] = counts[symbol]/len(atoms)
-    return comps
+from ase import Atoms,Atom
+from ase.io import read,write
+from ase.ga.utilities import closest_distances_generator, CellBounds
+from ase.data import atomic_numbers, atomic_names, atomic_masses, covalent_radii
+from ase.neighborlist import primitive_neighbor_list
 
 def flip_one_atom(atoms,types,endpoint_compositions=False):
     if endpoint_compositions:

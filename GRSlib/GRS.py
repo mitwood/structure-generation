@@ -120,7 +120,9 @@ class GRS:
 
         self.current_desc = self.convert_to_desc(data) 
         self.genmove = Genetic(data, self.current_desc, self.target_desc, self.pt, self.config) 
-        self.genmove.something_here()
+        #Dont want to make a func call the default here since the user will define this?
+        #Need a fallback to provide a good default if a genetic move is called.
+        #self.genmove.tournament_selection()
 
     def gradient_move(self,data):
         """

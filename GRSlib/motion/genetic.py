@@ -1,45 +1,15 @@
 #placeholder for genetic moves of (xyz) 
 import numpy as np
+#from ase.build import bulk
 #from ase.io import read,write
 #from ase.ga.utilities import closest_distances_generator, CellBounds
 #from ase.ga.startgenerator import StartGenerator
+#from ase import Atoms,Atom
+#from ase.data import atomic_numbers
 
-def generate_random_integers(sum_value, n):
-    # Generate a list of n - 1 random integers
-    random_integers = [np.random.randint(0, sum_value) for _ in range(n - 1)]
-    # Ensure the sum of the random integers is less than or equal to sum_value
-    random_integers.sort()
-    # Calculate the Nth integer to ensure the sum is equal to sum_value
-    random_integers.append(sum_value - sum(random_integers))
-    
-    return random_integers
-
-def generate_occs(target, natoms):
-    if type(target) == dict:
-        counts = {k: round(v * natoms) for k, v in target.items()}
-        diff = natoms - sum(counts.values())
-        while diff != 0:
-            for k in counts:
-                if diff > 0:
-                    counts[k] += 1
-                    diff -= 1
-                elif diff < 0 and counts[k] > 0:
-                    counts[k] -= 1
-                    diff += 1
-        occs = [k for k, v in counts.items() for _ in range(v)]
-        np.random.shuffle(occs)
-    elif type(target) == list:
-        occs = np.random.choice(target,natoms).tolist()
-    return occs
-
-def starting_generation(pop_size,all_species,cell,typ='ase',nchem = 1,**kwargs):
+def starting_generation(pop_size,all_species,cell,data_type,nchem,**kwargs):
     pop = []
-    if typ == 'ase':
-        from ase.io import read,write
-        from ase import Atoms,Atom
-        from ase.ga.utilities import closest_distances_generator, CellBounds
-        from ase.ga.startgenerator import StartGenerator
-        from ase.data import atomic_numbers
+    if data_type == 'ase':
         volume = np.dot(cell[2],np.cross(cell[0],cell[1]))
         dsize = int(pop_size/nchem)
         sort_specs = sorted(all_species)
@@ -55,8 +25,7 @@ def starting_generation(pop_size,all_species,cell,typ='ase',nchem = 1,**kwargs):
                 
         # Generate a dictionary with the closest allowed interatomic distances
         Zs = [ atomic_numbers[sym] for sym in list(set(all_species))]
-        blmin = closest_distances_generator(atom_numbers=Zs,
-                                            ratio_of_covalent_radii=0.5)
+        blmin = closest_distances_generator(atom_numbers=Zs,ratio_of_covalent_radii=0.5)
 
         natoms = len(all_species)
 
@@ -65,17 +34,12 @@ def starting_generation(pop_size,all_species,cell,typ='ase',nchem = 1,**kwargs):
         for block in block_sets:
             # Initialize the random structure generator
             #sg = StartGenerator(slab, all_species, blmin, box_volume=volume,
-            sg = StartGenerator(slab, block, blmin,
-                                number_of_variable_cell_vectors=0) #splits=
-
-            # Generate N random structures
-            # and add them to the database
+            sg = StartGenerator(slab, block, blmin,number_of_variable_cell_vectors=0) 
+            # Generate N random structures and add them to the database
             for i in range(dsize):
-                a = sg.get_new_candidate()
-                pop.append(a)
+                pop.append(sg.get_new_candidate())
 
     elif typ == 'lattice':
-        from ase.build import bulk
         try:
             parent = kwargs['parent']
             sc = kwargs['s'] # ( 2,2,1 ) or some other tuple that defines supercell
@@ -109,4 +73,31 @@ def mutation_type_from_prob(choice_probs):
     mut_typ = np.random.choice(choices,p=probs)
     return mut_typ
 
+def generate_random_integers(sum_value, n):
+    # Generate a list of n - 1 random integers
+    random_integers = [np.random.randint(0, sum_value) for _ in range(n - 1)]
+    # Ensure the sum of the random integers is less than or equal to sum_value
+    random_integers.sort()
+    # Calculate the Nth integer to ensure the sum is equal to sum_value
+    random_integers.append(sum_value - sum(random_integers))
+    
+    return random_integers
+
+def generate_occs(target, natoms):
+    if type(target) == dict:
+        counts = {k: round(v * natoms) for k, v in target.items()}
+        diff = natoms - sum(counts.values())
+        while diff != 0:
+            for k in counts:
+                if diff > 0:
+                    counts[k] += 1
+                    diff -= 1
+                elif diff < 0 and counts[k] > 0:
+                    counts[k] -= 1
+                    diff += 1
+        occs = [k for k, v in counts.items() for _ in range(v)]
+        np.random.shuffle(occs)
+    elif type(target) == list:
+        occs = np.random.choice(target,natoms).tolist()
+    return occs
 

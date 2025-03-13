@@ -98,7 +98,7 @@ class Scoring:
         del self._lmp
         return atom_forces
 
-    def get_score(self,add_cmds):
+    def get_score(self):
         #Return as array unweighted scores per moment
         self.construct_lmp()
         self._lmp.commands_string("run 0")

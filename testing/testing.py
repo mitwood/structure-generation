@@ -26,6 +26,7 @@ file = grs.convert.ase_to_lammps(atoms)
 #grs.convert.run_lammps_single('bcc.data')
 current_desc = grs.convert_to_desc(file)
 #-----------------------
+#grs.genetic_move.tournament_selection(data=None)
 
 score = grs.get_score('bcc.data')
 print(score)
