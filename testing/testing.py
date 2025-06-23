@@ -2,6 +2,8 @@ from time import time
 from mpi4py import MPI
 from GRSlib.GRS import GRS
 import numpy as np
+from ase.build import bulk
+from ase.io import read,write
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -19,7 +21,9 @@ grs = GRS(settings, comm=comm)
 #print("attr of grs.convert:")
 #print(attributes)
 
-atoms = grs.convert.lammps_to_ase('bcc.data')
+atoms = bulk('W','bcc',cubic=True)
+write('simple_bcc.data',atoms,format='lammps-data')
+#atoms = grs.convert.lammps_to_ase('bcc.data')
 #print(atoms)
 file = grs.convert.ase_to_lammps(atoms)
 #print(file)
@@ -27,8 +31,8 @@ file = grs.convert.ase_to_lammps(atoms)
 current_desc = grs.convert_to_desc(file)
 #-----------------------
 #grs.genetic_move.tournament_selection(data=None)
-
-score = grs.get_score('bcc.data')
-print(score)
+print('current desc',current_desc)
+#score = grs.get_score('bcc.data')
+#print(score)
 print("!")
 exit()
