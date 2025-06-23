@@ -28,6 +28,7 @@ current_desc = grs.convert_to_desc(file)
 #-----------------------
 #grs.genetic_move.tournament_selection(data=None)
 
+#score = grs.get_score('bcc.data')
 score = grs.get_score('bcc.data')
 print(score)
 print("!")

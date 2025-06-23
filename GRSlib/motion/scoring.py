@@ -1,5 +1,5 @@
 from GRSlib.parallel_tools import ParallelTools
-from GRSlib.motion.lossfunc import moments
+from GRSlib.motion.lossfunc.moments import LossFunction
 import lammps, lammps.mliap
 from lammps.mliap.loader import *
 from jax import grad, jit
@@ -23,34 +23,34 @@ class Scoring:
             target_desc = target_desc.flatten()
 #        print(np.shape(current_desc),np.shape(target_desc))
 
-    @partial(jit, static_argnums=(0))
-    def loss_function(self):
-        #construct the Jax graph to hand off to lammps
-        #TODO This should be generalized to allow for any loss function defined in lossfunc/ to be called
-        first_mom = None
-        second_mom = None
-        third_mom = None
-        fourth_mom = None
-        set_of_moments = []
-        if (any(x == 'mean' for x in self.config.sections['SCORING'].moments)):
-            print("Adding mean to loss function force field")
-            first_mom = moments.first_moment(self)
-        if (any(x == 'stdev' for x in self.config.sections['SCORING'].moments)):
-            print("Adding standard deviation to loss function force field")
-            second_mom = moments.second_moment(self)
-        if (any(x == 'skew' for x in self.config.sections['SCORING'].moments)):
-            print("Adding skewness to loss function force field")
-            third_mom = moments.third_moment(self)
-        if (any(x == 'kurt' for x in self.config.sections['SCORING'].moments)):
-            print("Adding kurtosis to loss function force field")
-            fourth_mom = moments.fourth_moment(self)
-        for item in [second_mom, third_mom, fourth_mom]: 
-            if item != None:
-                    set_of_moments.append(item)
-        loss_ff = first_mom
-        for item in set_of_moments:
-             loss_ff += item
-        return loss_ff
+#    @partial(jit, static_argnums=(0))
+#    def loss_function(self):
+#        #construct the Jax graph to hand off to lammps
+#        #TODO This should be generalized to allow for any loss function defined in lossfunc/ to be called
+#        first_mom = None
+#        second_mom = None
+#        third_mom = None
+#        fourth_mom = None
+#        set_of_moments = []
+#        if (any(x == 'mean' for x in self.config.sections['SCORING'].moments)):
+#            print("Adding mean to loss function force field")
+#            first_mom = moments.first_moment(self)
+#        if (any(x == 'stdev' for x in self.config.sections['SCORING'].moments)):
+#            print("Adding standard deviation to loss function force field")
+#            second_mom = moments.second_moment(self)
+#        if (any(x == 'skew' for x in self.config.sections['SCORING'].moments)):
+#            print("Adding skewness to loss function force field")
+#            third_mom = moments.third_moment(self)
+#        if (any(x == 'kurt' for x in self.config.sections['SCORING'].moments)):
+#            print("Adding kurtosis to loss function force field")
+#            fourth_mom = moments.fourth_moment(self)
+#        for item in [second_mom, third_mom, fourth_mom]: 
+#            if item != None:
+#                    set_of_moments.append(item)
+#        self.loss_ff = first_mom
+#        for item in set_of_moments:
+#             self.loss_ff += item
+#        return self.loss_ff
 
     def construct_lmp(self):
         #Generates the major components of a lammps script needed for a scoring call
@@ -67,15 +67,17 @@ class Scoring:
         self._lmp.command("atom_style atomic")
         self._lmp.command("read_data %s" % self.data)
         #TODO make the possibility to import any reference potential to be used with the mliap one
-#        self._lmp.command("pair_style mliap model mliappy LATER descriptor ace coupling_coefficients.yace")
+        self._lmp.command("pair_style mliap model mliappy LATER descriptor ace coupling_coefficients.yace")
 
-        self._lmp.command("pair_style hybrid/overlay soft %2.3f mliap model mliappy LATER descriptor ace coupling_coefficients.yace" % self.config.sections['MOTION'].soft_strength)
-        self._lmp.command("pair_coeff * * soft %f" % self.config.sections['MOTION'].soft_strength)
-        self._lmp.command("pair_coeff mliap * * %s" % (" ".join(str(x) for x in self.config.sections['BASIS'].elements)))
+#        self._lmp.command("pair_style hybrid/overlay soft %2.3f mliap model mliappy LATER descriptor ace coupling_coefficients.yace" % self.config.sections['MOTION'].soft_strength)
+#        self._lmp.command("pair_style hybrid/overlay soft %2.3f mliap model mliappy LATER descriptor ace coupling_coefficients.yace" % self.config.sections['MOTION'].soft_strength)
+#        self._lmp.command("pair_coeff * * soft %f" % self.config.sections['MOTION'].soft_strength)
+#        self._lmp.command("pair_coeff mliap * * %s" % (" ".join(str(x) for x in self.config.sections['BASIS'].elements)))
         self._lmp.command('neighbor  2.3 bin')
         self._lmp.command("neigh_modify one 10000")
-        loss_ff = self.loss_function()
-        forces = grad(self.loss_function)
+#        self.loss_ff = self.loss_function()
+#        forces = grad(self.loss_function)
+        loss_ff = LossFunction(self.config, self.current_desc, self.target_desc)
         lammps.mliap.load_model(loss_ff)
               
     def get_atomic_energies(self):
