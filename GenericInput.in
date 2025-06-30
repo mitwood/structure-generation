@@ -7,7 +7,7 @@ ranks = 1 2 3
 lmax = 0 3 3
 lmin = 0 0 0
 nmax = 8 1 1
-bikflag = 0
+bikflag = 1
 dgradflag = 0
 
 [MOTION]
@@ -39,7 +39,7 @@ attractor_target = True
 exact_distribution = False # Read in a stock structure and match exactly
 
 [TARGET]
-target_fname = 'bcc.data'
+target_fname = 'TwoAtoms.data'
 start_fname = 'bcc.data'
 
 [CONSTRAINT]
