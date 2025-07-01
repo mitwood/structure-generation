@@ -25,16 +25,16 @@ settings = \
     {
     "moments": "mean" ,
     "moments_coeff": 1 ,
-    "moment_bonus": 1 ,
+    "moment_bonus": 0 ,
     "moments_cross_coeff": 1 ,
-    "moment_cross_bonus": 1 ,
+    "moment_cross_bonus": 0 ,
     "attractor_target": "True",
     "exact_distribution": "False"
     },
 "TARGET":
     {
     "target_fname": "TwoAtoms.data",
-    "start_fname": "bcc.data"
+    "start_fname": "notbcc.data"
     }
 }
 
