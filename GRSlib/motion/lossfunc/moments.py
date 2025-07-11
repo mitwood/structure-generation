@@ -7,29 +7,43 @@ from lammps.mliap.loader import *
 
 class LossFunction:
     def __init__(self, config, current_desc, target_desc):
+        self.n_params = 1
         self.config = config
-        self.n_params=1
         self.current_desc = current_desc
         self.target_desc = target_desc
-        self.first_moment_grad=grad(self.first_moment)
-        self.second_moment_grad=grad(self.second_moment)
-        self.third_moment_grad=grad(self.third_moment)
-        self.fourth_moment_grad=grad(self.fourth_moment)
-        self.loss_ff_grad=grad(self.construct_loss)
-        self.n_descriptors=np.shape(self.current_desc)[1]-1
-        self.n_atoms=np.shape(self.current_desc)[0]
+        self.loss_ff_grad = grad(self.construct_loss)
+        self.n_descriptors = np.shape(self.current_desc)[1]
+        self.n_atoms = np.shape(self.current_desc)[0]
         self.n_elements = self.config.sections['BASIS'].numtypes
         if self.n_elements > 1:
             self.current_desc = self.current_desc.flatten()
             self.target_desc = self.target_desc.flatten()
         self.mode="score"
 
-    
-    def __call__(self, current_desc, target_desc, *args): 
+    def __call__(self, elems, current_desc, beta, energy): 
+#        print("!!",np.shape(current_desc),current_desc)
+#        print("??",np.shape(self.target_desc),self.target_desc)
+        mask=[0,1,2,3]
+        print("CALL",current_desc[:,mask])
+        #print("CALL",np.shape(current_desc),np.shape(beta),np.shape(energy))
+        self.current_desc = current_desc
         if self.mode=="score":     
-            loss = self.construct_loss(current_desc, target_desc)
-            
-#            grad_loss = grad(loss)
+            current_avg = np.average(self.current_desc, axis=0)
+            target_avg = np.average(self.target_desc, axis=0)
+            tst_residual = np.sum(np.nan_to_num(np.abs(current_avg-target_avg)))
+            is_zero = np.array(np.isclose(tst_residual,np.zeros(tst_residual.shape)),dtype=int)
+            bonus = -np.sum(is_zero*(float(self.config.sections['SCORING'].moment_bonus[0])))
+            tst_residual_final = tst_residual*float(self.config.sections['SCORING'].moments_coeff[0]) + bonus #MAE + bonus
+            print("     Mean score calculated by hand with numpy arrays: ",tst_residual_final)
+            score = self.construct_loss(self.current_desc, self.target_desc)
+            energy = [0] * self.n_atoms
+            energy[0] = score
+            print("     Mean score calculated from loss function constructor: ",score)
+
+#            grad_score = grad(self.construct_loss(self.current_desc, self.target_desc))
+#            beta[:,:] = 0
+#            beta[:,self.mask] = grad_score
+
 
         if self.mode=="update":
             self.update()
@@ -80,7 +94,6 @@ class LossFunction:
 
         for item in set_of_moments:
              loss_ff += item
-#        return jit(loss_ff)
         return loss_ff
 
 #    def grad_loss(self, current_desc, target_desc)
@@ -88,13 +101,13 @@ class LossFunction:
 #    Either way a model is returned such that LAMMPS can evaluate the energy/force as the score
 
 
-    @partial(jit, static_argnums=(0,))
+    #@partial(jit, static_argnums=(0,))
     def first_moment(self, current_desc, target_desc):
         current_avg = jnp.average(current_desc, axis=0)
         target_avg = jnp.average(target_desc, axis=0)
         tst_residual = jnp.sum(jnp.nan_to_num(jnp.abs(current_avg-target_avg)))
         is_zero = jnp.array(jnp.isclose(tst_residual,jnp.zeros(tst_residual.shape)),dtype=int)
-        bonus=-jnp.sum(is_zero*(float(self.config.sections['SCORING'].moment_bonus[0])))
+        bonus = -jnp.sum(is_zero*(float(self.config.sections['SCORING'].moment_bonus[0])))
         tst_residual_final = tst_residual*float(self.config.sections['SCORING'].moments_coeff[0]) + bonus #MAE + bonus
         return tst_residual_final
 

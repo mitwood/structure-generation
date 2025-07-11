@@ -128,6 +128,8 @@ def _extract_compute_np(lmp, name, compute_style, result_type, array_shape):
         array_np = copy.deepcopy(np.frombuffer(buffer_ptr.contents, dtype=float))
 #        array_np = copy.deepcopy(buffer_ptr.contents)
         array_np.shape = array_shape
+        #reshaped_array_np = np.delete(array_np, np.s_[-1:], axis=1)
+        #LAMMPS is returning an extra descriptor at the end of the list, deleting by reshaping
     return array_np
 
 def _extract_commands(string):

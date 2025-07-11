@@ -14,12 +14,13 @@ settings = \
     "numTypes": 1,
     "elements": "W",
     "rcutfac": 5.5,
+    "lambda": 1.4,
     "ranks": "1 2 3",
     "lmax": "0 3 3",
     "lmin": "0 0 0",
     "nmax": "8 1 1",
-    "bikflag": 1,
-    "dgradflag": 0
+    "nmaxbase": 8,
+    "bzeroflag": 0
     },
 "SCORING":
     {
@@ -33,8 +34,8 @@ settings = \
     },
 "TARGET":
     {
-    "target_fname": "TwoAtoms.data",
-    "start_fname": "notbcc.data"
+    "target_fname": "bcc.data",
+    "start_fname": "bcc.data"
     }
 }
 
@@ -52,6 +53,6 @@ grs = GRS(settings,comm=comm)
 #grs.genetic_move.tournament_selection(data=None)
 
 score = grs.get_score(settings["TARGET"]["start_fname"])
-print(score)
+print("     Mean score calculated through LAMMPS:",score)
 #print("!")
 exit()
