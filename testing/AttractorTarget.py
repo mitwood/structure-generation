@@ -25,7 +25,7 @@ settings = \
 "SCORING":
     {
     "moments": "mean" ,
-    "moments_coeff": 1 ,
+    "moments_coeff": 1.0 ,
     "moment_bonus": 0 ,
     "moments_cross_coeff": 1 ,
     "moment_cross_bonus": 0 ,
@@ -35,7 +35,7 @@ settings = \
 "TARGET":
     {
     "target_fname": "bcc.data",
-    "start_fname": "bcc.data"
+    "start_fname": "notbcc.data"
     }
 }
 
