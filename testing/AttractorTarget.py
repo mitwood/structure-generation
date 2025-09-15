@@ -29,13 +29,15 @@ settings = \
     "moment_bonus": "0" ,
     "moments_cross_coeff": "0",
     "moment_cross_bonus": "0",
-    "attractor_target": "True",
+    "strength_target": 1.0, 
+    "strength_prior": -1.0, 
     "exact_distribution": "False"
     },
 "TARGET":
     {
-    "target_fname": "bcc.data",
-    "start_fname": "notbcc.data"
+    "target_fname": "TwoAtoms.data",
+    "start_fname": "bcc.data",
+    "job_prefix": "TrialGRS"
     },
 "MOTION":
     {
@@ -65,6 +67,10 @@ score = grs.get_score(settings["TARGET"]["start_fname"])
 print("     Mean score calculated through LAMMPS:",score)
 #print("Done checking socring!")
 
-grs.gradient_move(settings["TARGET"]["start_fname"])
+updated_struct = grs.gradient_move(settings["TARGET"]["start_fname"])
+#for i in range(25):
+#    grs.update_prior()
+#    grs.update_start("Continue")
+#    updated_struct = grs.gradient_move(updated_struct)
 
 exit()
