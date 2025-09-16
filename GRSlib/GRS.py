@@ -4,7 +4,7 @@ from GRSlib.converters.convert_factory import convert
 from GRSlib.motion.scoring import Scoring
 from GRSlib.motion.motion import Gradient, Genetic
 
-import random, copy, os, glob
+import random, copy, os, glob, shutil
 import numpy as np
 
 class GRS:
@@ -69,32 +69,45 @@ class GRS:
             
         return descriptors
 
-    def update_prior(self):
+    def update_prior(self,data):
         """
         Accepts a structure (xyz) as input and will return descriptors (D) to be stored and used in conjunction with
         the target, optionally will convert between file types (xyz=lammps-data, ase.Atoms, etc). This is available 
         whena single structure cannot reproduce the target.
         """
-        prior_desc = self.convert.run_lammps_single(self.config.sections['TARGET'].job_prefix + "_last.data")
-        if self.prior_desc is None:
-            self.prior_desc = prior_desc
-        else:
-            self.prior_desc = np.append(self.prior_desc, prior_desc, axis=0)
+        prior_desc = self.convert.run_lammps_single(data)
+#        if self.prior_desc is None:
+#            self.prior_desc = prior_desc
+#        else:
+#            self.prior_desc = np.append(self.prior_desc, prior_desc, axis=0)
+        self.prior_desc = prior_desc
         return self.prior_desc
 
-    def update_start(self,str_option):
+    def update_start(self,data,str_option):
         """
         Used to update the starting structure, usually after a genetic/gradient move has been applied.
         """
         #Save the last structure in a meaningful way, check if other data is present already
         store_id = len(glob.glob(self.config.sections['TARGET'].job_prefix+"*"))
-        #try -> except : if --overwrite, continue
-        os.rename(self.config.sections['TARGET'].job_prefix + "_last.data", self.config.sections['TARGET'].job_prefix + "_%s.data"%store_id)
-    
-        #Options are Continue(), Template(), Random(), Reset()
+        if store_id==0:
+            data = self.config.sections['TARGET'].start_fname
+        shutil.copyfile(data, self.config.sections['TARGET'].job_prefix + "_%s.data"%store_id)
+
         if str_option == "Continue":
             #Take the last state from either genetic/gradient move and continue with next move
             data = self.config.sections['TARGET'].job_prefix + "_%s.data"%store_id
+        elif str_option == "MinScore":
+            #If the score has decreased, continue. Else, retry last structure.
+            if(self.before_score >= self.after_score):
+                data = self.config.sections['TARGET'].job_prefix + "_%s.data"%store_id
+            else:
+                data = self.config.sections['TARGET'].job_prefix + "_%s.data"%(store_id-1)
+        elif str_option == "MaxScore":
+            #If the score has increased, continue. Else, retry last structure.
+            if(self.before_score < self.after_score):
+                data = self.config.sections['TARGET'].job_prefix + "_%s.data"%store_id
+            else:
+                data = self.config.sections['TARGET'].job_prefix + "_%s.data"%(store_id-1)
 #        elif str_option == "Template":
 #            #Call structure builder from template, see James' old code
 #        elif str_option == "Random":
@@ -102,10 +115,11 @@ class GRS:
         elif str_option == "Reset":
             #Fallback to the original input strcture
             data = self.config.sections['TARGET'].start_fname
-#        elif str_option == "Last":
+        elif str_option == "Last":
             #Fallback to the last structure before the most recent genetic/gradient move.
+            data = self.config.sections['TARGET'].job_prefix + "_%s.data"%(store_id-1)
         else:
-            print("You did not specify a continuation condition (Continue, Template, Random, Reset, Last), exiting")
+            print("You did not specify a continuation condition (Continue, MinScore, MaxScore, Template, Random, Reset, Last), exiting")
             exit()
         return data
 
@@ -116,14 +130,12 @@ class GRS:
         """
         #Pass data to, and do something with the functs of scoring
         self.target_desc = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
-#        if self.target_desc == None:
-#            print('Target structure descriptors not found, using starting target')
-#            self.target_desc = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
-        
         self.current_desc = self.convert_to_desc(data)
-        self.prior_desc = self.current_desc
+        
+        if self.prior_desc == None: 
+            self.prior_desc = self.update_prior(self.config.sections['TARGET'].start_fname)
+
         if (np.shape(self.current_desc[1])==np.shape(self.target_desc[1])):
-            print("Called Scoring Function")
             self.score = Scoring(data, self.current_desc, self.target_desc, self.prior_desc, self.pt, self.config) 
             score = self.score.get_score()
         else:
@@ -137,7 +149,6 @@ class GRS:
         """
         @self.pt.single_timeit
         def propose_structure():
-            #1)
             print("Called Propose_Structure")
         propose_structure()
 
@@ -158,7 +169,8 @@ class GRS:
         if data == None:
             data = self.propose_structure()
 
-        self.current_desc = self.convert_to_desc(data) 
+        self.current_desc = self.convert_to_desc(data)
+        self.target_desc = self.convert_to_desc(self.config.sections['TARGET'].target_fname) 
         self.genmove = Genetic(data, self.current_desc, self.target_desc, self.pt, self.config) 
         #Dont want to make a func call the default here since the user will define this?
         #Need a fallback to provide a good default if a genetic move is called.
@@ -181,22 +193,21 @@ class GRS:
         
         if data == None:
             data = self.propose_structure()
-        
         self.current_desc = self.convert_to_desc(data)
+        self.target_desc = self.convert_to_desc(self.config.sections['TARGET'].target_fname) 
+      
         self.gradmove = Gradient(data, self.current_desc, self.target_desc, self.prior_desc, self.pt, self.config) 
         if self.config.sections['MOTION'].min_type == 'fire':
-            before_score, after_score = self.gradmove.fire_min()
-            print("Score Before/After Gradient Move:",before_score, after_score)
+            self.before_score, self.after_score, data = self.gradmove.fire_min()
         elif self.config.sections['MOTION'].min_type == 'line':
-            before_score, after_score = self.gradmove.line_min()
-            print("Score Before/After Gradient Move:",before_score, after_score)
+            self.before_score, self.after_score, data = self.gradmove.line_min()
         elif self.config.sections['MOTION'].min_type == 'box':
-            before_score, after_score = self.gradmove.box_min()
-            print("Score Before/After Gradient Move:",before_score, after_score)
+            self.before_score, self.after_score, data = self.gradmove.box_min()
         elif self.config.sections['MOTION'].min_type == 'temp':
-            before_score, after_score = self.gradmove.run_then_min()
-            print("Score Before/After Gradient Move:",before_score, after_score)
-
+            self.before_score, self.after_score, data = self.gradmove.run_then_min()
+        
+        self.write_output()
+        
         return data
 
     def baseline_training(self):
@@ -212,10 +223,11 @@ class GRS:
             print("Called Baseline_Training")
         baseline_training()
 
-    def write_output(self):
-        @self.pt.single_timeit
-        def write_output():
-            print("Doing some output now")
-            #self.output.write_lammps(self.solver.fit)
-            #self.output.write_errors(self.solver.errors)
-        write_output()
+    def write_output(self):  
+        #Can modfiy to take in an output style and call a specific function, for now it is generic and redundant naming
+#        @self.pt.single_timeit
+        def text_output():
+            store_id = len(glob.glob(self.config.sections['TARGET'].job_prefix+"*"))
+            with open("scoring_%s.txt"%self.config.sections['TARGET'].job_prefix, "a") as f:
+                print(store_id,self.before_score, self.after_score, file=f)
+        text_output()

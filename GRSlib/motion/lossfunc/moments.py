@@ -36,7 +36,7 @@ class LossFunction:
 
             score = self.construct_loss(current_desc, self.prior_desc)
 #            energy[0] += float(self.config.sections["SCORING"].strength_prior)*score #Scaled score (energy) between current and prior
-            print("     Target, Prior Scores: ", energy[0], score)
+#            print("     Target, Prior Scores: ", energy[0], score)
             forces = self.grad_loss(current_desc, self.prior_desc) #Forces between current and prior structures
             beta[:,self.mask] += float(self.config.sections["SCORING"].strength_prior)*forces #Scaled forces between current and prior
 
@@ -66,25 +66,21 @@ class LossFunction:
         set_of_moments = []
 
         if (any(x == 'mean' for x in self.config.sections['SCORING'].moments)):
-#            print("Adding mean to loss function force field")
             first_mom = self.first_moment(current_desc, target_desc)
         else:
             first_mom = None
             
         if (any(x == 'stdev' for x in self.config.sections['SCORING'].moments)):
-#            print("Adding standard deviation to loss function force field")
             second_mom = self.second_moment(current_desc, target_desc)
         else:
             second_mom = None
 
         if (any(x == 'skew' for x in self.config.sections['SCORING'].moments)):
-#            print("Adding skewness to loss function force field")
             third_mom = self.third_moment(current_desc, target_desc)
         else:
             third_mom = None
 
         if (any(x == 'kurt' for x in self.config.sections['SCORING'].moments)):
-#            print("Adding kurtosis to loss function force field")
             fourth_mom = self.fourth_moment(current_desc, target_desc)
         else:
             fourth_mom = None
