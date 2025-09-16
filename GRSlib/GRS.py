@@ -69,18 +69,19 @@ class GRS:
             
         return descriptors
 
-    def update_prior(self,data):
+    def set_prior(self,structs):
         """
         Accepts a structure (xyz) as input and will return descriptors (D) to be stored and used in conjunction with
         the target, optionally will convert between file types (xyz=lammps-data, ase.Atoms, etc). This is available 
         whena single structure cannot reproduce the target.
         """
-        prior_desc = self.convert.run_lammps_single(data)
-#        if self.prior_desc is None:
-#            self.prior_desc = prior_desc
-#        else:
-#            self.prior_desc = np.append(self.prior_desc, prior_desc, axis=0)
-        self.prior_desc = prior_desc
+        for data in structs:
+            prior_desc = self.convert.run_lammps_single(data)
+            if len(self.prior_desc)==0:
+                self.prior_desc = prior_desc
+            else:
+                self.prior_desc = np.r_[self.prior_desc, prior_desc]
+        
         return self.prior_desc
 
     def update_start(self,data,str_option):
@@ -133,7 +134,7 @@ class GRS:
         self.current_desc = self.convert_to_desc(data)
         
         if self.prior_desc == None: 
-            self.prior_desc = self.update_prior(self.config.sections['TARGET'].start_fname)
+            self.prior_desc = self.set_prior(self.config.sections['TARGET'].start_fname)
 
         if (np.shape(self.current_desc[1])==np.shape(self.target_desc[1])):
             self.score = Scoring(data, self.current_desc, self.target_desc, self.prior_desc, self.pt, self.config) 

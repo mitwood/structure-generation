@@ -1,5 +1,6 @@
 from mpi4py import MPI
 from GRSlib.GRS import GRS
+import random, copy, os, glob, shutil
 import numpy as np
 
 comm = MPI.COMM_WORLD
@@ -68,10 +69,12 @@ grs = GRS(settings,comm=comm)
 #print("Done checking socring!")
 
 updated_struct = settings["TARGET"]["start_fname"]
-grs.update_prior(updated_struct)
+grs.set_prior([updated_struct])
+
 for i in range(10):
 #    grs.update_prior()
     updated_struct = grs.gradient_move(updated_struct)
     updated_struct = grs.update_start(updated_struct,"MinScore")
+    grs.set_prior(glob.glob(settings['TARGET']["job_prefix"]+"*"))
 
 exit()
