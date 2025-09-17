@@ -66,6 +66,9 @@ class GRS:
         #Pass data to, and do something with the functs of convert
         #print("Called Convert To Descriptors for %s" % data)
         descriptors = self.convert.run_lammps_single(data)
+#        if self.config.sections['OUTPUT'].verbosity:
+        if not os.path.exists('%s.npy'%data):
+            np.save('%s.npy'%data.removesuffix(".data"), descriptors)
             
         return descriptors
 
@@ -81,7 +84,7 @@ class GRS:
                 self.prior_desc = prior_desc
             else:
                 self.prior_desc = np.r_[self.prior_desc, prior_desc]
-        
+        np.save('prior.npy', self.prior_desc)
         return self.prior_desc
 
     def update_start(self,data,str_option):
@@ -89,7 +92,7 @@ class GRS:
         Used to update the starting structure, usually after a genetic/gradient move has been applied.
         """
         #Save the last structure in a meaningful way, check if other data is present already
-        store_id = len(glob.glob(self.config.sections['TARGET'].job_prefix+"*"))
+        store_id = len(glob.glob(self.config.sections['TARGET'].job_prefix+"*.data"))
         if store_id==0:
             data = self.config.sections['TARGET'].start_fname
         shutil.copyfile(data, self.config.sections['TARGET'].job_prefix + "_%s.data"%store_id)
@@ -130,7 +133,11 @@ class GRS:
         between file types (xyz=lammps-data, ase.Atoms, etc)
         """
         #Pass data to, and do something with the functs of scoring
-        self.target_desc = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
+        if self.config.sections['TARGET'].target_fname == None:
+            print("Provided target descriptors superceed target data file")
+            self.target_desc = np.load(self.config.sections['TARGET'].target_fdesc)    
+        else:
+            self.target_desc = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
         self.current_desc = self.convert_to_desc(data)
         
         if self.prior_desc == None: 
@@ -177,6 +184,7 @@ class GRS:
         #Need a fallback to provide a good default if a genetic move is called.
         #self.genmove.tournament_selection()
 
+#    @self.pt.single_timeit 
     def gradient_move(self,data):
         """
         Accepts a structure (xyz, ase.Atoms) as input and will return updated structure (xyz, ase.Atoms) that 
@@ -195,8 +203,12 @@ class GRS:
         if data == None:
             data = self.propose_structure()
         self.current_desc = self.convert_to_desc(data)
-        self.target_desc = self.convert_to_desc(self.config.sections['TARGET'].target_fname) 
-      
+        if self.config.sections['TARGET'].target_fname == None:
+            print("Provided target descriptors superceed target data file")
+            self.target_desc = np.load(self.config.sections['TARGET'].target_fdesc)    
+        else:
+            self.target_desc = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
+   
         self.gradmove = Gradient(data, self.current_desc, self.target_desc, self.prior_desc, self.pt, self.config) 
         if self.config.sections['MOTION'].min_type == 'fire':
             self.before_score, self.after_score, data = self.gradmove.fire_min()

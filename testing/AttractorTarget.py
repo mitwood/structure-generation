@@ -37,6 +37,7 @@ settings = \
 "TARGET":
     {
     "target_fname": "fcc.data",
+    "target_fdesc": "fcc.npy",
     "start_fname": "bcc.data",
     "job_prefix": "TrialGRS"
     },
@@ -75,6 +76,6 @@ for i in range(10):
 #    grs.update_prior()
     updated_struct = grs.gradient_move(updated_struct)
     updated_struct = grs.update_start(updated_struct,"MinScore")
-    grs.set_prior(glob.glob(settings['TARGET']["job_prefix"]+"*"))
+    grs.set_prior(glob.glob(settings['TARGET']["job_prefix"]+"*.data"))
 
 exit()
