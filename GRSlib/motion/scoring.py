@@ -1,32 +1,31 @@
-from GRSlib.parallel_tools import ParallelTools
-from GRSlib.motion.lossfunc.moments import LossFunction
+#from GRSlib.parallel_tools import ParallelTools
+#from GRSlib.motion.lossfunc.moments import Moments
+#from GRSlib.motion.lossfunc import Gradient
 from GRSlib.converters.sections.lammps_base import Base, _extract_compute_np
 import lammps, lammps.mliap
 from lammps.mliap.loader import *
-from jax import grad, jit
 from functools import partial
 import numpy as np
 
-#Scoring has to be a class within motion because we want a consistent reference for scores, ans this
-#refrence will be LAMMPS using a constructed potential energy surface from the representation loss function
+#Scoring has to be a class within motion because we want a consistent reference for scores, and this
+#refrence will be LAMMPS using a constructed potential energy surface from the representation loss function.
+#Sub-classes of Scoring will be versions of this representation loss function (Moments, Entropy, etc), allowing
+#for custom verions to be added without trouble.
 
 class Scoring:
 
-    def __init__(self, data, current_desc, target_desc, prior_desc, pt, config):
+#    def __init__(self, pt, config, data, loss_ff, **kwargs):
+    def __init__(self, pt, config, loss_func, data, descriptors):
         self.pt = pt #ParallelTools()
         self.config = config #Config()
-        self.current_desc = []
-        self.target_desc = target_desc
-        self.prior_desc = prior_desc
         self.data = data
-        self.n_elements = self.config.sections['BASIS'].numtypes
-        if self.n_elements > 1:
-            current_desc = current_desc.flatten()
-            target_desc = target_desc.flatten()
+        self.descriptors = descriptors
+        self.loss_func = loss_func
+        self.loss_func.__init__(self.pt, self.config, self.descriptors) #Initialize loss function, get ready to send to scoring
+        self.loss_func(self.pt, self.config, self.descriptors) #Call loss function, get ready to send to scoring
         self.lmp = self.pt.initialize_lammps('log.lammps',0)
         lammps.mliap.activate_mliappy(self.lmp)
-        self.loss_ff = LossFunction(self.config, self.current_desc, self.target_desc, self.prior_desc)
-    
+
     def construct_lmp(self):
         #Generates the major components of a lammps script needed for a scoring call
 #        me = self.lmp.extract_setting("world_rank")
@@ -51,11 +50,12 @@ class Scoring:
         init_lmp=construct_string.format(self.data, self.config.sections["MOTION"].soft_strength, (" ".join(str(x) for x in self.config.sections['BASIS'].elements)))
         #TODO make the possibility to import any reference potential to be used with the mliap one
         self.lmp.commands_string(init_lmp)
-        lammps.mliap.load_model(self.loss_ff)
+        lammps.mliap.load_model(self.loss_func)
         self.lmp.command("run 0")
               
     def get_atomic_energies(self):
         #Return as array per-atom energies for the set of potentials applied
+        lammps.mliap.activate_mliappy(self.lmp)
         self.construct_lmp()
         self.lmp.command("compute peatom all pe/atom")
         self.lmp.command("run 0")
@@ -75,7 +75,6 @@ class Scoring:
         return atom_forces
 
     def get_score(self):
-        #Return as array unweighted scores per moment
         self.construct_lmp()
         self.lmp.command("run 0")
         score = self.lmp.get_thermo("pe") # potential energy
