@@ -83,22 +83,18 @@ class GRS:
         the target, optionally will convert between file types (xyz=lammps-data, ase.Atoms, etc). This is available 
         when a single structure cannot reproduce the target.
         """
+        try:
+            self.descriptors['prior'] = np.load('prior.npy')
+        except:
+            pass
         for data in structs:
             prior_desc = self.convert.run_lammps_single(data)
-#            print(self.descriptors.get('prior',None))
-#            if self.descriptors.get('prior',None):
-#                self.descriptors['prior'] = prior_desc
-#            else:
-#                self.descriptors['prior'] = np.r_[self.descriptors['prior'], prior_desc]
             try:
                 self.descriptors['prior'] = np.r_[self.descriptors['prior'], prior_desc]
             except:
                 self.descriptors['prior'] = prior_desc
         np.save('prior.npy', self.descriptors['prior'])
         
-        #pass
-        #return self.descriptors
-
     def update_start(self,data,str_option):
         """
         Used to update the starting structure, usually after a genetic/gradient move has been applied.
@@ -117,13 +113,19 @@ class GRS:
             if(self.before_score >= self.after_score):
                 data = self.config.sections['TARGET'].job_prefix + "_%s.data"%store_id
             else:
-                data = self.config.sections['TARGET'].job_prefix + "_%s.data"%(store_id-1)
+                try:
+                    data = self.config.sections['TARGET'].job_prefix + "_%s.data"%(store_id-1)
+                except:
+                    data = self.config.sections['TARGET'].job_prefix + "_last.data"                  
         elif str_option == "MaxScore":
             #If the score has increased, continue. Else, retry last structure.
             if(self.before_score < self.after_score):
                 data = self.config.sections['TARGET'].job_prefix + "_%s.data"%store_id
             else:
-                data = self.config.sections['TARGET'].job_prefix + "_%s.data"%(store_id-1)
+                try:
+                    data = self.config.sections['TARGET'].job_prefix + "_%s.data"%(store_id-1)
+                except:
+                    data = self.config.sections['TARGET'].job_prefix + "_last.data"
 #        elif str_option == "Template":
 #            #Call structure builder from template, see James' old code
 #        elif str_option == "Random":
@@ -133,7 +135,7 @@ class GRS:
             data = self.config.sections['TARGET'].start_fname
         elif str_option == "Last":
             #Fallback to the last structure before the most recent genetic/gradient move.
-            data = self.config.sections['TARGET'].job_prefix + "_%s.data"%(store_id-1)
+            data = self.config.sections['TARGET'].job_prefix + "_last.data"
         else:
             print("You did not specify a continuation condition (Continue, MinScore, MaxScore, Template, Random, Reset, Last), exiting")
             exit()
@@ -208,18 +210,17 @@ class GRS:
 #        gradient_move()
         #1) Take in target descriptors, convert to moments of descriptor distribution or other loss function
         #2) Take in current descriptors, convert to moments of descriptor distribution or other loss function
-        #3) Construct a fictitious potential energy surface based on difference in moments or other loss function
-        #4) Assemble a LAMMPS input script that overlaps potentials and runs dynamics
-        #5) Return an updated structure and scoring on the difference in moments or other loss function
+        #3) Construct a fictitious potential energy surface based on difference in moments or other loss function (self.loss_func)
+        #4) Assemble a LAMMPS input script that overlaps potentials and runs dynamics (self.score)
+        #5) Return an updated structure and scoring on the difference in moments or other loss function (self.gradmove)
 #        print("Called Gradient_Move")
         
         if data == None:
             data = self.propose_structure()
         self.descriptors['current']= self.convert_to_desc(data)
-        if self.config.sections['TARGET'].target_fname == None:
-            print("Provided target descriptors override target data file")
+        try:
             self.descriptors['target'] = np.load(self.config.sections['TARGET'].target_fdesc)    
-        else:
+        except:
             self.descriptors['target'] = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
    
         self.score = Scoring(self.pt, self.config, self.loss_func, data, self.descriptors)  # Set scoring class to assign scores to moves
@@ -254,7 +255,7 @@ class GRS:
         #Can modfiy to take in an output style and call a specific function, for now it is generic and redundant naming
 #        @self.pt.single_timeit
         def text_output():
-            store_id = len(glob.glob(self.config.sections['TARGET'].job_prefix+"*"))
+            store_id = len(glob.glob(self.config.sections['TARGET'].job_prefix+"*.data"))
             with open("scoring_%s.txt"%self.config.sections['TARGET'].job_prefix, "a") as f:
                 print(store_id,self.before_score, self.after_score, file=f)
         text_output()
