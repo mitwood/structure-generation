@@ -92,7 +92,7 @@ class Optimize:
         self.scoring = scoring
 
     def latin_hyper(self, **kwargs):
-        #equal sampling accross input space
+        #placeholder for equal sampling accross input space of generated strucutres
         pass
 
     def sim_anneal(self, **kwargs):
