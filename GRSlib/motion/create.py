@@ -18,6 +18,8 @@ import random
 # Parent class for creating new structures using ASE tools. This does not require a scoring function, unlike the other
 # parent classes (Gradient, Genetic). Returns dictionaries of 
 
+#TODO need to make heavy use of converting between ASE and LAMMPS-Data objects
+
 class Create:
 
     def __init__(self, pt, config):

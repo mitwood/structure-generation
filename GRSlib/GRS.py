@@ -3,7 +3,7 @@ from GRSlib.io.input import Config
 from GRSlib.converters.convert_factory import convert
 from GRSlib.motion.scoring_factory import scoring
 from GRSlib.motion.scoring import Scoring
-from GRSlib.motion.motion import Gradient, Optimize
+from GRSlib.motion.motion import Gradient, Optimize, Create
 
 import random, copy, os, glob, shutil
 import numpy as np
