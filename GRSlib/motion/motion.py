@@ -5,12 +5,12 @@ import numpy as np
 import random
 
 # Two types of motion (aka changes) can be applied to a structure 1) Gradients of the loss function (energy/score) 
-# yielding continuous changes, or 2) genetic moves that are discrete (atom addition/removal, chemical identities).
+# yielding continuous changes, or 2) discrete moves that include (atom addition/removal, chemical identities).
 # New types can be added as classes if there is need, follow class inheritence of existing motion types.
+# These classes require a scoring function, which is inherited after initializing in GRS.py. 
 
 class Gradient:
 
-#    def __init__(self, data, config, pt, current_desc, target_desc, prior_desc):
     def __init__(self, pt, config, data, scoring):
         self.pt = pt #ParallelTools()
         self.config = config #Config()
@@ -61,7 +61,7 @@ class Gradient:
     def run_then_min(self):
         #Will construct a set of additional commands to send to LAMMPS before scoring
         add_cmds=\
-        """velocity all create %s 4928459 dist gaussian
+        """velocity all create %s %s dist gaussian
         fix nve all nve
         fix lan all langevin %s %s 1.0 48279
         run %s
@@ -71,16 +71,17 @@ class Gradient:
         min_modify integrator eulerexplicit tmax 10.0 tmin 0.0 delaystep 5 dtgrow 1.1 dtshrink 0.5 alpha0 0.1 alphashrink 0.99 vdfmax 100000 halfstepback no initialdelay no
         dump 1 all custom 1 run_minimize.dump id type x y z fx fy fz
         minimize 1e-6 1e-6 %s %s
-        write_data %s_last.data""" % (self.config.sections['MOTION'].temperature, self.config.sections['MOTION'].temperature, 
-                                       self.config.sections['MOTION'].temperature, self.config.sections['MOTION'].nsteps, 
-                                       self.config.sections['MOTION'].nsteps, self.config.sections['MOTION'].nsteps, 
-                                       self.config.sections['MOTION'].nsteps, self.config.sections['TARGET'].job_prefix)
+        write_data %s_last.data""" % (self.config.sections['MOTION'].temperature, np.random.randint(low=1, high=99999), 
+                                      self.config.sections['MOTION'].temperature, self.config.sections['MOTION'].temperature, 
+                                      self.config.sections['MOTION'].nsteps, self.config.sections['MOTION'].nsteps, 
+                                      self.config.sections['MOTION'].nsteps, self.config.sections['MOTION'].nsteps, 
+                                      self.config.sections['TARGET'].job_prefix)
 
         before_score, after_score = Scoring.add_cmds_before_score(add_cmds)
         end_data = self.config.sections['TARGET'].job_prefix + "_last.data"
         return before_score, after_score, end_data
 
-class Genetic:
+class Optimize:
 
     def __init__(self, data, current_desc, target_desc, prior_desc, pt, config):
         self.pt = pt #ParallelTools()

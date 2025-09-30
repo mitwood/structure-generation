@@ -3,7 +3,7 @@ from GRSlib.io.input import Config
 from GRSlib.converters.convert_factory import convert
 from GRSlib.motion.scoring_factory import scoring
 from GRSlib.motion.scoring import Scoring
-from GRSlib.motion.motion import Gradient, Genetic
+from GRSlib.motion.motion import Gradient, Optimize
 
 import random, copy, os, glob, shutil
 import numpy as np
@@ -187,14 +187,16 @@ class GRS:
         #3) Hybridize, Mutate based on set of rules and probabilities
         #4) Store socring information with best-of-generation and best-overall isolated
         #5) Loop until generation limit or scoring residual below threshold
-        print("Called Genetic_Move")
-
         if data == None:
             data = self.propose_structure()
-
-        self.descriptors['current'] = self.convert_to_desc(data)
-        self.descriptors['target'] = self.convert_to_desc(self.config.sections['TARGET'].target_fname) 
-        self.genmove = Genetic(self.pt, self.config, data, self.descriptors) 
+        self.descriptors['current']= self.convert_to_desc(data)
+        try:
+            self.descriptors['target'] = np.load(self.config.sections['TARGET'].target_fdesc)    
+        except:
+            self.descriptors['target'] = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
+   
+        self.score = Scoring(self.pt, self.config, self.loss_func, data, self.descriptors)  # Set scoring class to assign scores to moves
+        self.genmove = Optimize(self.pt, self.config, self.score) #Set desired motion class with scoring attached
         #Dont want to make a func call the default here since the user will define this?
         #Need a fallback to provide a good default if a genetic move is called.
         #self.genmove.tournament_selection()
