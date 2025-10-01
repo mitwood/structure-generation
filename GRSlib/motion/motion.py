@@ -1,6 +1,8 @@
 #from GRSlib.parallel_tools import ParallelTools
 #from GRSlib.motion.scoring_factory import scoring
 from GRSlib.motion.scoring import Scoring
+from GRSlib.motion.genetic import Genetic
+from GRSlib.motion.create import Create
 import numpy as np
 import random
 
@@ -103,32 +105,55 @@ class Optimize:
         #placeholder, possible for DAKOTA or pyMOO coupling?
         pass
     
-    def tournament_selection(self, **kwargs):
+    def tournament_selection(self, *args):
         #More of a super function that will call a bunch of the ones below
         #TODO Currently this is a copy/paste of the old code, needs work.
-
+        
+        starting_generation = Create.starting_generation()
         scores = []
-        for candidate in len(population):
-            scores.append(Scoring.get_score(population[candidate]))
-        selection = population.copy()
 
-        # Pick 2 indicies to compare and add the best of
-        # to the selection list (e.g. perform a tournament)
-        #Allow for a scoring anomoly at some low rate? else return min(scores)?
-        for round in len(selection)-1:
-            compare_pair = np.random.randint(0, len(selection), 2)
-            if scores[compare_pair[0]] <= scores[compare_pair[1]]:
-                loser = compare_pair[1]
-                selection.pop(loser)
+        for candidate in len(starting_generation):
+            scores.append(self.scoring.get_score(starting_generation[candidate]))
+
+        data = np.c_[starting_generation, scores] #appends arrays along the second axis (column-wise)
+        
+        selection = starting_generation.copy() # copy so we can pop elements out
+
+        for iteration in self.config.sections['GENETIC'].num_generations:               
+            # Pick 2 indicies to compare and add the best of to the selection list (e.g. perform a tournament)
+            for round in len(selection)-1:
+                compare_pair = np.random.randint(0, len(selection), 2)
+                if scores[compare_pair[0]] <= scores[compare_pair[1]]:
+                    loser = compare_pair[1]
+                    selection.pop(loser)
+                else:
+                    loser = compare_pair[0]
+                    selection.pop(loser)
+            winner = [iteration, selection, min(scores[compare_pair[0]],scores[compare_pair[1]])]
+    
+            #Winning candidate is then appended to winners circle list : [generation, ase.Atoms, score]
+            try:
+                gen_winners = np.c_[gen_winners, winner] #appends arrays along the first axis (row-wise)
+            except:
+                gen_winners = winner
+
+            #Now setup for the next iteration of the tournament
+            scores = [] 
+
+            if np.random.rand() < self.config.sections['GENETIC'].mutation_rate:
+                selection = Genetic.mutation(selection) #Will mutation only take in one structure?
             else:
-                loser = compare_pair[0]
-                selection.pop(loser)
-        if np.random.rand() < self.config.sections['GENETIC'].mutation_rate:
-            nextgen_selection = self.mutation(selection) #Will mutation only take in one structure?
-        else:
-            nextgen_selection = self.crossover(selection) #Should have two structures
-        return nextgen_selection
+                hybrid_pair = np.random.randint(0, len(gen_winners), 1)
+                selection = Genetic.crossover(selection, hybrid_pair) #Should have two structures
 
+            for candidate in len(selection):
+                scores.append(self.scoring.get_score(selection[candidate]))
+
+
+        #End of tournament returns winners circle list to GRS.py -> (convert.ASEtoLAMMPS + write score output)
+
+        return gen_winners
+        
     def unique_tournament_selection(self, **kwargs):
         #More of a super function that will call a bunch of the ones below
         #TODO Currently this is a copy/paste of the old code, needs work.

@@ -90,7 +90,7 @@ class GRS:
         for data in structs:
             prior_desc = self.convert.run_lammps_single(data)
             try:
-                self.descriptors['prior'] = np.r_[self.descriptors['prior'], prior_desc]
+                self.descriptors['prior'] = np.r_[self.descriptors['prior'], prior_desc] #appends arrays along the first axis (row-wise)
             except:
                 self.descriptors['prior'] = prior_desc
         np.save('prior.npy', self.descriptors['prior'])
@@ -197,9 +197,11 @@ class GRS:
    
         self.score = Scoring(self.pt, self.config, self.loss_func, data, self.descriptors)  # Set scoring class to assign scores to moves
         self.genmove = Optimize(self.pt, self.config, self.score) #Set desired motion class with scoring attached
-        #Dont want to make a func call the default here since the user will define this?
-        #Need a fallback to provide a good default if a genetic move is called.
+        
+        
         #self.genmove.tournament_selection()
+        #for iterations in top_candidates[1], convert.ase_to_lammps
+        #self.write_output()
 
 #    @self.pt.single_timeit 
     def gradient_move(self,data):
