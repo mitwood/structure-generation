@@ -1,10 +1,11 @@
 from GRSlib.parallel_tools import ParallelTools
 from GRSlib.io.input import Config
 from GRSlib.converters.convert_factory import convert
+from GRSlib.motion.scoring_factory import scoring
 from GRSlib.motion.scoring import Scoring
-from GRSlib.motion.motion import Gradient, Genetic
+from GRSlib.motion.motion import Gradient, Optimize, Create
 
-import random
+import random, copy, os, glob, shutil
 import numpy as np
 
 class GRS:
@@ -30,9 +31,15 @@ class GRS:
         self.pt = ParallelTools(comm=comm)
         self.pt.all_barrier()
         self.config = Config(self.pt, input, arguments_lst=arglist)
-        self.target_desc = []
-        self.current_desc = []
 
+        #Set up the generic variables used everwhere
+        self.data = self.config.sections['TARGET'].start_fname
+        desc_types = ["current", "target", "prior"] 
+        self.descriptors = {key: None for key in desc_types}
+
+        #Set up the super functions 
+        self.convert = convert(self.config.sections['BASIS'].descriptor,self.pt,self.config)
+        self.loss_func = scoring(self.config.sections['SCORING'].score_type, self.pt, self.config) # Find out which class to call for loss function
 #       Instantiate other backbone attributes.
 #       self.basis = basis(self.config.sections["BASIS"].descriptor, self.pt, self.config) if "BASIS" in self.config.sections else None
 
@@ -40,12 +47,6 @@ class GRS:
         if (hasattr(self.pt, "lammps_version")):
             if (self.pt.lammps_version < 20220915):
                 raise Exception(f"Please upgrade LAMMPS to 2022-09-15 or later to use MLIAP based structure searching.")
-
-        #Convert initial target structure if available
-        if self.config.sections['TARGET'].target_fname is None:
-            print('Target structure not found or undefined')
-        else:
-            self.target_desc = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
 
     def __del__(self):
         """Override deletion statement to free shared arrays owned by this instance."""
@@ -68,11 +69,77 @@ class GRS:
         between file types (xyz=lammps-data, ase.Atoms, etc)
         """
         #Pass data to, and do something with the functs of convert
-        print("Called Convert To Descriptors for %s" % data)
-        self.convert = convert(self.config.sections['BASIS'].descriptor,self.pt,self.config) 
+        #print("Called Convert To Descriptors for %s" % data)
         descriptors = self.convert.run_lammps_single(data)
+#        if self.config.sections['OUTPUT'].verbosity:
+        if not os.path.exists('%s.npy'%data):
+            np.save('%s.npy'%data.removesuffix(".data"), descriptors)
             
         return descriptors
+
+    def set_prior(self,structs):
+        """
+        Accepts a structure (xyz) as input and will return descriptors (D) to be stored and used in conjunction with
+        the target, optionally will convert between file types (xyz=lammps-data, ase.Atoms, etc). This is available 
+        when a single structure cannot reproduce the target.
+        """
+        try:
+            self.descriptors['prior'] = np.load('prior.npy')
+        except:
+            pass
+        for data in structs:
+            prior_desc = self.convert.run_lammps_single(data)
+            try:
+                self.descriptors['prior'] = np.r_[self.descriptors['prior'], prior_desc] #appends arrays along the first axis (row-wise)
+            except:
+                self.descriptors['prior'] = prior_desc
+        np.save('prior.npy', self.descriptors['prior'])
+        
+    def update_start(self,data,str_option):
+        """
+        Used to update the starting structure, usually after a genetic/gradient move has been applied.
+        """
+        #Save the last structure in a meaningful way, check if other data is present already
+        store_id = len(glob.glob(self.config.sections['TARGET'].job_prefix+"*.data"))
+        if store_id==0:
+            data = self.config.sections['TARGET'].start_fname
+        shutil.copyfile(data, self.config.sections['TARGET'].job_prefix + "_%s.data"%store_id)
+
+        if str_option == "Continue":
+            #Take the last state from either genetic/gradient move and continue with next move
+            data = self.config.sections['TARGET'].job_prefix + "_%s.data"%store_id
+        elif str_option == "MinScore":
+            #If the score has decreased, continue. Else, retry last structure.
+            if(self.before_score >= self.after_score):
+                data = self.config.sections['TARGET'].job_prefix + "_%s.data"%store_id
+            else:
+                try:
+                    data = self.config.sections['TARGET'].job_prefix + "_%s.data"%(store_id-1)
+                except:
+                    data = self.config.sections['TARGET'].job_prefix + "_last.data"                  
+        elif str_option == "MaxScore":
+            #If the score has increased, continue. Else, retry last structure.
+            if(self.before_score < self.after_score):
+                data = self.config.sections['TARGET'].job_prefix + "_%s.data"%store_id
+            else:
+                try:
+                    data = self.config.sections['TARGET'].job_prefix + "_%s.data"%(store_id-1)
+                except:
+                    data = self.config.sections['TARGET'].job_prefix + "_last.data"
+#        elif str_option == "Template":
+#            #Call structure builder from template, see James' old code
+#        elif str_option == "Random":
+#            #Call structure buider that creates a random cell of atoms
+        elif str_option == "Reset":
+            #Fallback to the original input strcture
+            data = self.config.sections['TARGET'].start_fname
+        elif str_option == "Last":
+            #Fallback to the last structure before the most recent genetic/gradient move.
+            data = self.config.sections['TARGET'].job_prefix + "_last.data"
+        else:
+            print("You did not specify a continuation condition (Continue, MinScore, MaxScore, Template, Random, Reset, Last), exiting")
+            exit()
+        return data
 
     def get_score(self,data):
         """
@@ -80,14 +147,22 @@ class GRS:
         between file types (xyz=lammps-data, ase.Atoms, etc)
         """
         #Pass data to, and do something with the functs of scoring
-        self.current_desc = self.convert_to_desc(data)
-        if (np.shape(self.current_desc)==np.shape(self.target_desc)):
-            print("Called Scoring Function")
+        if self.config.sections['TARGET'].target_fname == None:
+            print("Provided target descriptors superceed target data file")
+            self.descriptors['target'] = np.load(self.config.sections['TARGET'].target_fdesc)    
         else:
-            raise RuntimeError(">>> Found unmatched for target and current descriptors")
+            self.descriptors['target'] = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
+        self.descriptors['current'] = self.convert_to_desc(data)
+        
+        if self.descriptors.get('prior',None)==None: 
+            self.set_prior([self.config.sections['TARGET'].start_fname])
 
-        self.score = Scoring(data, self.current_desc, self.target_desc, self.pt, self.config) 
-        score = self.score.get_score()
+        if (np.shape(self.descriptors['current'][1])==np.shape(self.descriptors['target'][1])):
+            #Define scoring method now that descriptors and starting data are available
+            self.score = Scoring(self.pt, self.config, self.loss_func, data, self.descriptors) 
+            score = self.score.get_score() 
+        else:
+            raise RuntimeError(">>> Found unmatched BASIS for target and current descriptors")
             
         return score
 
@@ -97,7 +172,6 @@ class GRS:
         """
         @self.pt.single_timeit
         def propose_structure():
-            #1)
             print("Called Propose_Structure")
         propose_structure()
 
@@ -113,17 +187,23 @@ class GRS:
         #3) Hybridize, Mutate based on set of rules and probabilities
         #4) Store socring information with best-of-generation and best-overall isolated
         #5) Loop until generation limit or scoring residual below threshold
-        print("Called Genetic_Move")
-
         if data == None:
             data = self.propose_structure()
-
-        self.current_desc = self.convert_to_desc(data) 
-        self.genmove = Genetic(data, self.current_desc, self.target_desc, self.pt, self.config) 
-        #Dont want to make a func call the default here since the user will define this?
-        #Need a fallback to provide a good default if a genetic move is called.
+        self.descriptors['current']= self.convert_to_desc(data)
+        try:
+            self.descriptors['target'] = np.load(self.config.sections['TARGET'].target_fdesc)    
+        except:
+            self.descriptors['target'] = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
+   
+        self.score = Scoring(self.pt, self.config, self.loss_func, data, self.descriptors)  # Set scoring class to assign scores to moves
+        self.genmove = Optimize(self.pt, self.config, self.score) #Set desired motion class with scoring attached
+        
+        
         #self.genmove.tournament_selection()
+        #for iterations in top_candidates[1], convert.ase_to_lammps
+        #self.write_output()
 
+#    @self.pt.single_timeit 
     def gradient_move(self,data):
         """
         Accepts a structure (xyz, ase.Atoms) as input and will return updated structure (xyz, ase.Atoms) that 
@@ -132,30 +212,35 @@ class GRS:
 #        @self.pt.single_timeit 
 #        def gradient_move():
 #        gradient_move()
-        #1) Take in target descriptors, convert to moments of descriptor distribution
-        #2) Take in current descriptors, convert to moments of descriptor distribution
-        #3) Construct a fictitious potential energy surface based on difference in moments
-        #4) Assemble a LAMMPS input script that overlaps potentials and runs dynamics
-        #5) Return an updated structure and scoring on the difference in moments
-        print("Called Gradient_Move")
+        #1) Take in target descriptors, convert to moments of descriptor distribution or other loss function
+        #2) Take in current descriptors, convert to moments of descriptor distribution or other loss function
+        #3) Construct a fictitious potential energy surface based on difference in moments or other loss function (self.loss_func)
+        #4) Assemble a LAMMPS input script that overlaps potentials and runs dynamics (self.score)
+        #5) Return an updated structure and scoring on the difference in moments or other loss function (self.gradmove)
+#        print("Called Gradient_Move")
         
         if data == None:
             data = self.propose_structure()
-        
-        self.current_desc = self.convert_to_desc(data)
-        self.gradmove = Gradient(data, self.current_desc, self.target_desc, self.pt, self.config) 
+        self.descriptors['current']= self.convert_to_desc(data)
+        try:
+            self.descriptors['target'] = np.load(self.config.sections['TARGET'].target_fdesc)    
+        except:
+            self.descriptors['target'] = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
+   
+        self.score = Scoring(self.pt, self.config, self.loss_func, data, self.descriptors)  # Set scoring class to assign scores to moves
+        self.gradmove = Gradient(self.pt, self.config, data, self.score) #Set desired motion class with scoring attached
         if self.config.sections['MOTION'].min_type == 'fire':
-            before_score, after_score = self.gradmove.fire_min()
-            print(before_score, after_score)
+            self.before_score, self.after_score, data = self.gradmove.fire_min()
         elif self.config.sections['MOTION'].min_type == 'line':
-            before_score, after_score = self.gradmove.line_min()
-            print(before_score, after_score)
+            self.before_score, self.after_score, data = self.gradmove.line_min()
         elif self.config.sections['MOTION'].min_type == 'box':
-            before_score, after_score = self.gradmove.box_min()
-            print(before_score, after_score)
+            self.before_score, self.after_score, data = self.gradmove.box_min()
         elif self.config.sections['MOTION'].min_type == 'temp':
-            before_score, after_score = self.gradmove.run_then_min()
-            print(before_score, after_score)
+            self.before_score, self.after_score, data = self.gradmove.run_then_min()
+        
+        self.write_output()
+        
+        return data
 
     def baseline_training(self):
         """
@@ -170,10 +255,11 @@ class GRS:
             print("Called Baseline_Training")
         baseline_training()
 
-    def write_output(self):
-        @self.pt.single_timeit
-        def write_output():
-            print("Doing some output now")
-            #self.output.write_lammps(self.solver.fit)
-            #self.output.write_errors(self.solver.errors)
-        write_output()
+    def write_output(self):  
+        #Can modfiy to take in an output style and call a specific function, for now it is generic and redundant naming
+#        @self.pt.single_timeit
+        def text_output():
+            store_id = len(glob.glob(self.config.sections['TARGET'].job_prefix+"*.data"))
+            with open("scoring_%s.txt"%self.config.sections['TARGET'].job_prefix, "a") as f:
+                print(store_id,self.before_score, self.after_score, file=f)
+        text_output()

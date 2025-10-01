@@ -37,7 +37,7 @@ try:
             self.mumax = len(self.elements)
             #self.erefs = self.get_value("ACE", "erefs", "0.0").split() 
             self.erefs = [0.0] * len(self.elements)
-            self.bikflag = self.get_value("BASIS", "bikflag", "0", "bool")
+            self.bikflag = self.get_value("BASIS", "bikflag", "1", "bool")
             self.dgradflag = self.get_value("BASIS", "dgradflag", "0", "bool")
             self.b_basis = self.get_value("BASIS" , "b_basis" , "pa_tabulated") 
             self.manuallabs = self.get_value("BASIS", "manuallabs", 'None')
@@ -45,7 +45,7 @@ try:
             for i, atom_type in enumerate(self.elements):
                 self.type_mapping[atom_type] = i+1
 
-            self.bzeroflag = self.get_value("BASIS", "bzeroflag", "0", "bool")
+            self.bzeroflag = self.get_value("BASIS", "bzeroflag", "1", "bool")
             self.wigner_flag = self.get_value("BASIS", "wigner_flag", "1", "bool")
 
             #if self.bikflag:
@@ -56,6 +56,7 @@ try:
             self._generate_b_list()
             self._write_couple()
             Section.num_desc = len(self.blist)
+            #print("Generating ACE lables yields this many cofficients: ",Section.num_desc)
             self.delete()
 
         def _generate_b_list(self):
@@ -87,7 +88,6 @@ try:
                     ranked_chem_nus.append(PA_lammps)
                     if len(not_compat) > 0:
                         self.pt.single_print('Functions incompatible with lammps for rank %d : '% rank, not_compat)
-
             highranks = [int(r) for r in self.ranks if int(r) >= 5]
             warnflag = any([ self.lmax_dct[rank] >= 5 and self.lmin[ind] > 1 for ind,rank in enumerate(highranks)])
             if warnflag:
