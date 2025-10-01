@@ -2,6 +2,8 @@ from time import time
 from mpi4py import MPI
 from GRSlib.GRS import GRS
 import numpy as np
+from ase.build import bulk
+from ase.io import read,write
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
