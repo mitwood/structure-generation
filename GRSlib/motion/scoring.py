@@ -15,10 +15,9 @@ import numpy as np
 class Scoring:
 
 #    def __init__(self, pt, config, data, loss_ff, **kwargs):
-    def __init__(self, pt, config, loss_func, data, descriptors):
+    def __init__(self, pt, config, loss_func, descriptors):
         self.pt = pt #ParallelTools()
         self.config = config #Config()
-        self.data = data
         self.descriptors = descriptors
         self.loss_func = loss_func
         self.loss_func.__init__(self.pt, self.config, self.descriptors) #Initialize loss function, get ready to send to scoring
@@ -47,7 +46,7 @@ class Scoring:
         thermo 10
         thermo_style custom step etotal temp press
         """
-        init_lmp=construct_string.format(self.data, self.config.sections["MOTION"].soft_strength, (" ".join(str(x) for x in self.config.sections['BASIS'].elements)))
+        init_lmp=construct_string.format(self.data, self.config.sections["GRADIENT"].soft_strength, (" ".join(str(x) for x in self.config.sections['BASIS'].elements)))
         #TODO make the possibility to import any reference potential to be used with the mliap one
         self.lmp.commands_string(init_lmp)
         lammps.mliap.load_model(self.loss_func)
@@ -74,7 +73,8 @@ class Scoring:
 #        del self.lmp
         return atom_forces
 
-    def get_score(self):
+    def get_score(self,data):
+        self.data = data
         self.construct_lmp()
         self.lmp.command("run 0")
         score = self.lmp.get_thermo("pe") # potential energy

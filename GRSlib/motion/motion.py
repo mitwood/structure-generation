@@ -2,9 +2,9 @@
 #from GRSlib.motion.scoring_factory import scoring
 from GRSlib.motion.scoring import Scoring
 from GRSlib.motion.genetic import Genetic
-from GRSlib.motion.create import Create
+from GRSlib.motion.create import *
 import numpy as np
-import random
+import random, shutil, os, glob
 
 # Two types of motion (aka changes) can be applied to a structure 1) Gradients of the loss function (energy/score) 
 # yielding continuous changes, or 2) discrete moves that include (atom addition/removal, chemical identities).
@@ -88,10 +88,12 @@ class Gradient:
 
 class Optimize:
 
-    def __init__(self, pt, config, scoring):
+    def __init__(self, pt, config, scoring, convert):
         self.pt = pt #ParallelTools()
         self.config = config #Config()
         self.scoring = scoring
+        self.convert = convert
+        self.create = Create.starting_generation(self, self.pt, self.config)
 
     def latin_hyper(self, **kwargs):
         #placeholder for equal sampling accross input space of generated strucutres
@@ -105,11 +107,11 @@ class Optimize:
         #placeholder, possible for DAKOTA or pyMOO coupling?
         pass
     
-    def tournament_selection(self, *args):
+    """
+    def tournament_selection(self):
         #More of a super function that will call a bunch of the ones below
-        #TODO Currently this is a copy/paste of the old code, needs work.
         
-        starting_generation = Create.starting_generation()
+        starting_generation = self.create_start()
         scores = []
 
         for candidate in len(starting_generation):
@@ -149,39 +151,71 @@ class Optimize:
             for candidate in len(selection):
                 scores.append(self.scoring.get_score(selection[candidate]))
 
-
         #End of tournament returns winners circle list to GRS.py -> (convert.ASEtoLAMMPS + write score output)
 
         return gen_winners
-        
-    def unique_tournament_selection(self, **kwargs):
+    """
+    def unique_tournament_selection(self, *args):
         #More of a super function that will call a bunch of the ones below
-        #TODO Currently this is a copy/paste of the old code, needs work.
-
         #This should be the default since we dont want to send duplicates the crossover/mutation
+        self.genetic = Genetic(self.pt, self.config,self.scoring)       
+        starting_generation = Create.starting_generation(self)
         scores = []
-        for candidate in len(population):
-            scores.append(Scoring.get_score(population[candidate]))
-        selection = []
-        for candidate in population:
-            if candidate not in selection:
-                selection.append(candidate)
-        # The structures to chose from should now only contain unique candidates, determined by score        
 
-        # Pick 2 indicies to compare and add the best of
-        # to the selection list (e.g. perform a tournament)
-        #Allow for a scoring anomoly at some low rate? else return min(scores)?
-        for round in len(selection)-1:
-            compare_pair = np.random.randint(0, len(selection), 2)
-            if scores[compare_pair[0]] <= scores[compare_pair[1]]:
-                loser = compare_pair[1]
-                selection.pop(loser)
+        for candidate in range(len(starting_generation)):
+            file_prefix = self.config.sections['TARGET'].job_prefix+"_Cand%sGen%s"%(candidate,0)
+            lammps_data = self.convert.ase_to_lammps(starting_generation[candidate],file_prefix)
+            #Honestly I would prefer scores as a dictonary of Key:Item pairs, TODO later.
+            scores.append([0,candidate,file_prefix+".lammps-data",self.scoring.get_score(lammps_data)])
+#            shutil.move(lammps_data, self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.data"%(candidate,0))
+        
+        selection = scores.copy() 
+        for iteration in self.config.sections['GENETIC'].ngenerations:               
+#            selection = np.unique(scores[:2])#Cull candidates for uniqueness. 0: generation, 1: id, 2: file-name, 3: score
+            for round in range(np.shape(selection)[0]-2): #-2 because we want to keep the best and second-best for crossover
+                compare_pair = np.random.randint(0, np.shape(selection)[0], 2)
+                #This is where a dictionary of score/selection would be nice and clean instead of fixed index references.
+                if scores[compare_pair[0]][3] <= scores[compare_pair[1]][3]:
+                    loser = compare_pair[1]
+                    selection.pop(loser)
+                else:
+                    loser = compare_pair[0]
+                    selection.pop(loser)
+            #At the last round, hold onto the runner up for a possible crossover
+            if selection[0][3] <= selection[0][3]:
+                winner = selection[0]
+                runner_up = selection[1]
             else:
-                loser = compare_pair[0]
-                selection.pop(loser)
-        if np.random.rand() < self.config.sections['GENETIC'].mutation_rate:
-            nextgen_selection = self.mutation(selection) #Will mutation only take in one structure?
-        else:
-            nextgen_selection = self.crossover(selection) #Should have two structures
-        return nextgen_selection
+                winner = selection[1]
+                runner_up = selection[0]
+
+            atoms_winner = self.convert.lammps_to_ase(winner[2])
+            atoms_runner_up = self.convert.lammps_to_ase(runner_up[2])
+
+            #Winning candidate is then appended to winners circle list : [generation, ase.Atoms, score]
+            try:
+                gen_winners = np.c_[gen_winners, winner] #appends arrays along the first axis (row-wise)
+            except:
+                gen_winners = winner
+            print("Winners",gen_winners)
+            #Now setup for the next iteration of the tournament
+            scores = [] 
+            print(glob.glob(self.config.sections['TARGET'].job_prefix + "_Cand*Gen*"))
+            for file in glob.glob(self.config.sections['TARGET'].job_prefix + "_Cand*Gen*"):
+                if file not in gen_winners:
+                    os.remove(file)
+
+            if np.random.rand() < float(self.config.sections['GENETIC'].mutation_rate):
+                selection = self.genetic.mutation(atoms_winner) #Will mutation only take in one structure?
+            else:
+                selection = self.genetic.crossover(atoms_winner, atoms_runner_up) #Should have two structures
+
+            for candidate in range(len(selection)):
+                file_prefix = self.config.sections['TARGET'].job_prefix+"_Cand%sGen%s"%(candidate,iteration)
+                lammps_data = self.convert.ase_to_lammps(starting_generation[candidate],file_prefix)
+                scores.append([iteration,candidate,file_prefix+".lammps.data",self.scoring.get_score(lammps_data)])
+                #shutil.move(lammps_data, self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.data"%(candidate,iteration))
+
+
+        #End of tournament returns winners circle list to GRS.py -> (convert.ASEtoLAMMPS + write score output)
 

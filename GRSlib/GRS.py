@@ -159,7 +159,7 @@ class GRS:
 
         if (np.shape(self.descriptors['current'][1])==np.shape(self.descriptors['target'][1])):
             #Define scoring method now that descriptors and starting data are available
-            self.score = Scoring(self.pt, self.config, self.loss_func, data, self.descriptors) 
+            self.score = Scoring(self.pt, self.config, self.loss_func, self.descriptors) 
             score = self.score.get_score() 
         else:
             raise RuntimeError(">>> Found unmatched BASIS for target and current descriptors")
@@ -195,11 +195,10 @@ class GRS:
         except:
             self.descriptors['target'] = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
    
-        self.score = Scoring(self.pt, self.config, self.loss_func, data, self.descriptors)  # Set scoring class to assign scores to moves
-        self.genmove = Optimize(self.pt, self.config, self.score) #Set desired motion class with scoring attached
+        self.score = Scoring(self.pt, self.config, self.loss_func, self.descriptors)  # Set scoring class to assign scores to moves
+        self.genmove = Optimize(self.pt, self.config, self.score, self.convert) #Set desired motion class with scoring attached
         
-        
-        #self.genmove.tournament_selection()
+        self.genmove.unique_tournament_selection()
         #for iterations in top_candidates[1], convert.ase_to_lammps
         #self.write_output()
 
@@ -227,7 +226,7 @@ class GRS:
         except:
             self.descriptors['target'] = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
    
-        self.score = Scoring(self.pt, self.config, self.loss_func, data, self.descriptors)  # Set scoring class to assign scores to moves
+        self.score = Scoring(self.pt, self.config, self.loss_func, self.descriptors)  # Set scoring class to assign scores to moves
         self.gradmove = Gradient(self.pt, self.config, data, self.score) #Set desired motion class with scoring attached
         if self.config.sections['MOTION'].min_type == 'fire':
             self.before_score, self.after_score, data = self.gradmove.fire_min()
