@@ -4,6 +4,9 @@ from ase.ga.utilities import closest_distances_generator, CellBounds
 from ase.ga.startgenerator import StartGenerator
 from ase.data import atomic_numbers, atomic_names, atomic_masses, covalent_radii
 from ase.neighborlist import primitive_neighbor_list
+import numpy as np
+import random
+from collections import Counter
 
 # Lowest level functions that can be used to modif structures, inherited class not needed since scoring will happen in
 # motion/genetic.py. This collection of functions is mostly to avoid clustter and massive files where more abstract 
@@ -11,205 +14,92 @@ from ase.neighborlist import primitive_neighbor_list
 
 class GenMoves():
     
-    def add_atom(atoms,symbols,tol = 0.5):
-        #TODO Currently this is a copy/paste of the old code, needs work.
-        blmin = closest_distances_generator(atom_numbers=[atomic_numbers[symbol] for symbol in symbols] + [atomic_numbers['Ne']], ratio_of_covalent_radii=0.5)
-        def readd():
-            symbol = vnp.random.choice(symbols)
-            rnd_pos_scale = vnp.random.rand(1,3)
-            rnd_pos = vnp.matmul(atoms.get_cell(),rnd_pos_scale.T)
-            rnd_pos = rnd_pos.T[0]
-            new_atom = Atom('Ne',rnd_pos)
-            tst_atoms = atoms.copy()
-            tst_atoms.append(new_atom)
-            tst_atoms.wrap()
-            rc = 5.
-            
-            atinds = [atom.index for atom in tst_atoms]
-            at_dists = {i:[] for i in atinds}
-            all_dists = []
-            nl = primitive_neighbor_list('ijdD',pbc=tst_atoms.pbc,positions=tst_atoms.positions ,cell=atoms.get_cell(),cutoff=rc)
-            bond_types = {i:[] for i in atinds}
-            for i,j in zip(nl[0],nl[-1]):
-                at_dists[i].append(j)
-            for i,j in zip(nl[0],nl[1]):
-                bond_types[i].append( (atomic_numbers[tst_atoms[i].symbol] , atomic_numbers[tst_atoms[j].symbol])  )
-            return symbol, tst_atoms, at_dists, rnd_pos, bond_types
-        symbol, tst_atoms , at_dists , rnd_pos, bond_types = readd()
-        bondtyplst = list(bond_types.keys())
-        syms = [tst_atom.symbol for tst_atom in tst_atoms]
-        tst_id = syms.index('Ne')
-        tst_dists = at_dists[tst_id]
-        tst_bonds = bond_types[tst_id]
-        conds = all([ vnp.linalg.norm(tst_dist) >=  blmin[(atomic_numbers[symbol] , tst_bonds[i][1])] for i,tst_dist in enumerate(tst_dists)])
-        while not conds:
-            symbol , tst_atoms, at_dists , rnd_pos, bond_types = readd()
-            syms = [tst_atom.symbol for tst_atom in tst_atoms]
-            tst_id = syms.index('Ne')
-            tst_dists = at_dists[tst_id]
-            tst_bonds = bond_types[tst_id]
-            #conds = all([ vnp.linalg.norm(tst_dist) >= tol for tst_dist in tst_dists])
-            #conds = all([ vnp.linalg.norm(tst_dist) >= blmin[tst_bonds[i]] for i,tst_dist in enumerate(tst_dists)])
-            conds = all([ vnp.linalg.norm(tst_dist) >=  blmin[(atomic_numbers[symbol] , tst_bonds[i][1])]-tol for i,tst_dist in enumerate(tst_dists)])
-        atoms.append(Atom(symbol,rnd_pos))
-        return atoms
-
-    def remove_atom(atoms,symbols,tol = 0.5):
-        #TODO Currently this is a copy/paste of the old code, needs work.
-        blmin = closest_distances_generator(atom_numbers=[atomic_numbers[symbol] for symbol in symbols] + [atomic_numbers['Ne']], ratio_of_covalent_radii=0.5)
-        return atoms
-
-    def change_cell():
-        #TODO Currently this is a copy/paste of the old code, needs work.
-        return atoms
-
-    def perturb_one_atom(atoms,scale=0.5,max_attempt=100,apply_to='ase'):
-        #TODO Currently this is a copy/paste of the old code, needs work.
-        if apply_to == 'ase':
-            cutoffs = ase.neighborlist.natural_cutoffs(atoms)
-            sym_num_map = {sym:atomic_numbers[sym] for sym in atoms.symbols}
-            #nl = ase.neighborlist.neighbor_list('ijd', atoms, max(cutoffs))
-            nl = ase.neighborlist.neighbor_list('ijd', atoms, cutoffs)
-            #nl.update(atoms)
-            #indices, offsets = nl.get_neighbors(0)`
-            Zs = [ atomic_numbers[sym] for sym in list(set(atoms.symbols))]
-            blmin = closest_distances_generator(atom_numbers=Zs,
-                                                ratio_of_covalent_radii=0.5)
-            good_pert = False
-            nattempt =0
-            new_atoms = atoms.copy()
-            while not good_pert and nattempt < max_attempt:
-                new_atoms = atoms.copy()
-                pert_ind = np.random.randint(0,len(atoms))
-                perturbation = np.random.rand(1,3)[0]
-                posneg = 2.*(perturbation - np.min(perturbation))/np.ptp(perturbation)-1
-                posneg *= scale
-                new_atoms[pert_ind].x += posneg[0]
-                new_atoms[pert_ind].y += posneg[1]
-                new_atoms[pert_ind].z += posneg[2]
-                nl = ase.neighborlist.neighbor_list('ijd', new_atoms, cutoffs)
-                sym_num_map = {sym:atomic_numbers[sym] for sym in new_atoms.symbols}
-                pair_dist_flags = [ blmin[tuple(sorted([sym_num_map[new_atoms.symbols[i]], sym_num_map[ new_atoms.symbols[nl[1][i_ind]]] ]))] > nl[2][i_ind] for i_ind, i in enumerate(nl[0])]
-                if not any(pair_dist_flags):
-                    good_pert = True
-                nattempt += 1
-            return new_atoms
-
-            """
-            new_atoms = atoms.copy()
-            pert_ind = np.random.randint(0,len(atoms))
-            perturbation = np.random.rand(1,3)[0]
-            posneg = 2.*(perturbation - np.min(perturbation))/np.ptp(perturbation)-1
-            posneg *= scale
-            new_atoms[pert_ind].x += posneg[0]
-            new_atoms[pert_ind].y += posneg[1]
-            new_atoms[pert_ind].z += posneg[2]
-            return new_atoms
-            """
-
-        elif apply_to == 'raw_positions':
-            new_atoms = atoms.copy()
-            pert_ind = np.random.randint(0,len(atoms))
-            perturbation = np.random.rand(1,3)[0]
-            posneg = 2.*(perturbation - np.min(perturbation))/np.ptp(perturbation)-1
-            posneg *= scale
-            new_atoms[pert_ind][0] += posneg[0]
-            new_atoms[pert_ind][1] += posneg[1]
-            new_atoms[pert_ind][2] += posneg[2]
-            return new_atoms
-
-    def perturb_N_atoms(atoms,scale=0.5,max_attempt = 100, fraction=0.25):
-        #TODO Currently this is a copy/paste of the old code, needs work.
-        cutoffs = ase.neighborlist.natural_cutoffs(atoms)
-        sym_num_map = {sym:atomic_numbers[sym] for sym in atoms.symbols}
-        #nl = ase.neighborlist.neighbor_list('ijd', atoms, max(cutoffs))
-        nl = ase.neighborlist.neighbor_list('ijd', atoms, cutoffs)
-        #nl.update(atoms)
-        #indices, offsets = nl.get_neighbors(0)`
-        Zs = [ atomic_numbers[sym] for sym in list(set(atoms.symbols))]
-        blmin = closest_distances_generator(atom_numbers=Zs,
-                                            ratio_of_covalent_radii=0.5)
-
-        good_pert = False
-        nattempt =0
-        new_atoms = atoms.copy()
-        while not good_pert and nattempt < max_attempt:
-            pert_inds = np.random.choice(range(len(atoms)),size=int(len(atoms)*fraction) )
-            for pert_ind in pert_inds:
-                new_atoms = atoms.copy()
-                perturbation = np.random.rand(1,3)[0]
-                posneg = 2.*(perturbation - np.min(perturbation))/np.ptp(perturbation)-1
-                posneg *= scale
-                new_atoms[pert_ind].x += posneg[0]
-                new_atoms[pert_ind].y += posneg[1]
-                new_atoms[pert_ind].z += posneg[2]
-            nl = ase.neighborlist.neighbor_list('ijd', new_atoms, cutoffs)
-            sym_num_map = {sym:atomic_numbers[sym] for sym in new_atoms.symbols}
-            pair_dist_flags = [ blmin[tuple(sorted([sym_num_map[new_atoms.symbols[i]], sym_num_map[ new_atoms.symbols[nl[1][i_ind]]] ]))] > nl[2][i_ind] for i_ind, i in enumerate(nl[0])]
-            if not any(pair_dist_flags):
-                good_pert = True
-            nattempt += 1
-        if not good_pert:
-            print ("WARNING: this mutation has a bad neighbor distance - try changing your scale parameter")
-        return new_atoms
-
-    def flip_one_atom(atoms,types,endpoint_compositions=False):
-        #TODO Currently this is a copy/paste of the old code, needs work.
-        if endpoint_compositions:
-            new_atoms = atoms.copy()
-            flip_ind = np.random.randint(0,len(atoms))
-            flip_current = new_atoms[flip_ind].symbol
-            excluded = [typ for typ in types if typ != flip_current]
-            flip_to_ind = np.random.randint(0,len(excluded))
-            flip_to_type = excluded[flip_to_ind]
-            new_atoms[flip_ind].symbol = flip_to_type
+    def atom_count(atoms,config):
+        #From the user input of density ratio, figure out the bounds of number of atoms to add/remove
+        #Roll dice on the +/- bounds and adjust the ase.atom object that is read in.
+        cell = atoms.get_cell() #Carry over the cell size from the supecell
+        cell_lenx, cell_leny, cell_lenz = atoms.cell.cellpar()[0],atoms.cell.cellpar()[1],atoms.cell.cellpar()[2]
+        natoms = len(atoms.get_atomic_numbers())
+        chem_comp = list(atoms.symbols) #atoms.get_chemical_formula(mode='all')
+        elements = list(Counter(chem_comp).keys()) #same as set(chem_comp)
+        ele_counts = list(Counter(chem_comp).items()) #counts per unique element
+        new_positions = atoms.get_positions()
+        max_deladd = np.abs(natoms - round(natoms*config.sections["GENETIC"].density_ratio))
+        change_count = random.randint(-max_deladd,max_deladd)
+        if change_count < 0:
+            for i in range(abs(change_count)):
+                del atoms[random.randint(0,len(atoms.get_atomic_numbers())-1)] #Needs to be atoms.get_atomic_numbers not natoms
+            chem_comp = list(atoms.symbols) #atoms.get_chemical_formula(mode='all')
+            elements = list(Counter(chem_comp).keys()) #same as set(chem_comp)
+            ele_counts = list(Counter(chem_comp).items()) #counts per unique element
+            sym_comp = ""
+            for ele in range(len(elements)):
+                sym_comp += elements[ele]+str(ele_counts[ele][1])
+            new_positions = atoms.get_positions()
+            new_atoms = Atoms(symbols=sym_comp,positions=new_positions, cell=cell, pbc=[1,1,1])
         else:
-            itr = 0
-            comps_dct = get_comp(atoms,types)
-            comp_vals = list(comps_dct.values())
-            while itr == 0 or any([icomp == 0.0 for icomp in comp_vals]):
-                new_atoms = atoms.copy()
-                flip_ind = np.random.randint(0,len(atoms))
-                flip_current = new_atoms[flip_ind].symbol
-                excluded = [typ for typ in types if typ != flip_current]
-                flip_to_ind = np.random.randint(0,len(excluded))
-                flip_to_type = excluded[flip_to_ind]
-                new_atoms[flip_ind].symbol = flip_to_type
-                comps_dct = get_comp(new_atoms,types)
-                comp_vals = list(comps_dct.values())
-                itr += 1
+            for i in range(abs(change_count)):
+                tmp_x,tmp_y,tmp_z = np.random.uniform(low=0.0,high=cell_lenx),np.random.uniform(low=0.0,high=cell_leny),np.random.uniform(low=0.0,high=cell_lenz)
+                new_positions = np.append(new_positions,[[tmp_x,tmp_y,tmp_z]], axis=0)
+                chem_comp.append(random.choice(list(set(chem_comp))))
+            sym_comp = ""
+            elements = list(Counter(chem_comp).keys()) #same as set(chem_comp)
+            ele_counts = list(Counter(chem_comp).items()) #counts per unique element
+            for ele in range(len(elements)):
+                sym_comp += elements[ele]+str(ele_counts[ele][1])
+            new_atoms = Atoms(symbols=sym_comp,positions=new_positions, cell=cell, pbc=[1,1,1])
         return new_atoms
 
-    def flip_N_atoms(atoms,types,fraction=None,endpoint_compositions=False):
-        #TODO Currently this is a copy/paste of the old code, needs work.
-        if endpoint_compositions:
+    def volume(atoms,config):
+        #From the user input of density ratio, take cube root and roll dice for lx,ly,lz,alpha,beta,gamma
+        cell = atoms.get_cell() #Carry over the cell size from the supecell
+        scaled_positions = atoms.get_scaled_positions()
+        atom_symbols = atoms.symbols
+        scale_matrix = np.eye(3,dtype=float)*0.5*(config.sections["GENETIC"].density_ratio)**(1./3.)
+        new_cell = np.matmul(cell,scale_matrix)
+        new_positions = np.matmul(scaled_positions,new_cell)
+        new_atoms = Atoms(atom_symbols,positions=new_positions, cell=new_cell, pbc=[1,1,1])
+        return new_atoms
+
+    def perturb(atoms,config):
+        new_cell = atoms.get_cell() #Carry over the cell size from the supecell
+        atom_symbols = atoms.symbols()
+        new_positions = atoms.positions()
+        atom_length = (1/(3.)**(1./2.))*(len(atoms.numbers())/atoms.get_volume())*(1./3.) # Linear distance from average atomic volume, becomes max displacement distance
+        change_count = random.randint(1,round(len(atoms.numbers())/2)) #Perturb up to one-half the atom positions
+        for i in range(change_count):
+            pertub_id = random.randint(0,len(atoms.numbers())-1)
+            new_positions[id][0] += np.random.uniform(low=-atom_length,high=atom_length)
+            new_positions[id][1] += np.random.uniform(low=-atom_length,high=atom_length)
+            new_positions[id][2] += np.random.uniform(low=-atom_length,high=atom_length)
+
+        new_atoms = Atoms(atom_symbols,positions=new_positions, cell=new_cell, pbc=[1,1,1])
+        return new_atoms
+
+    def change_ele(atoms,config):
+
+        chem_comp = atoms.get_chemical_formula(mode='all')
+        elements = Counter(chem_comp).keys() #same as set(chem_comp)
+        ele_counts = Counter(chem_comp).items()/len(atoms.numbers()) #counts per unique element
+
+        itr = 0
+        while itr == 0 or any([icomp == 0.0 for icomp in ele_counts]):
             fraction = np.random.rand()
             pert_inds = np.random.choice(range(len(atoms)),size=int(len(atoms)*fraction) )
             new_atoms = atoms.copy()
             for pert_ind in pert_inds:
                 flip_ind = np.random.randint(0,len(atoms))
                 flip_current = new_atoms[flip_ind].symbol
-                excluded = [typ for typ in types if typ != flip_current]
+                excluded = [typ for typ in elements if typ != flip_current]
                 flip_to_ind = np.random.randint(0,len(excluded))
                 flip_to_type = excluded[flip_to_ind]
                 new_atoms[flip_ind].symbol = flip_to_type
-        else:
-            comps_dct = get_comp(atoms,types)
-            comp_vals = list(comps_dct.values())
-            itr = 0
-            while itr == 0 or any([icomp == 0.0 for icomp in comp_vals]):
-                fraction = np.random.rand()
-                pert_inds = np.random.choice(range(len(atoms)),size=int(len(atoms)*fraction) )
-                new_atoms = atoms.copy()
-                for pert_ind in pert_inds:
-                    flip_ind = np.random.randint(0,len(atoms))
-                    flip_current = new_atoms[flip_ind].symbol
-                    excluded = [typ for typ in types if typ != flip_current]
-                    flip_to_ind = np.random.randint(0,len(excluded))
-                    flip_to_type = excluded[flip_to_ind]
-                    new_atoms[flip_ind].symbol = flip_to_type
-                comps_dct = get_comp(new_atoms,types)
-                comp_vals = list(comps_dct.values())
-                itr += 1
+            elements = Counter(chem_comp).keys() #same as set(chem_comp)
+            ele_counts = Counter(chem_comp).items()/len(atoms.numbers()) #counts per unique element
+            itr += 1
 
         return new_atoms
+
+    def minimize(atoms,config):
+        #Do nothing because it will be relaxed upon returning to genetic.py
+        return atoms    

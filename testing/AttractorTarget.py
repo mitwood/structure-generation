@@ -13,7 +13,7 @@ settings = \
     {
     "descriptor": "ACE",
     "numTypes": 1,
-    "elements": "W",
+    "elements": "W", #Needs to be a dict?
     "rcutfac": 5.5,
     "lambda": 1.4,
     "ranks": "1 2 3",
@@ -39,14 +39,26 @@ settings = \
     "start_fname": "notbcc.data",
     "job_prefix": "TrialGRS"
     },
-"MOTION":
+"GRADIENT":
     {
-    "soft_strength": 0.5,
+    "soft_strength": 1.0,
     "ml_strength": 1.0,
-    "nsteps": 10000,
+    "nsteps": 1000,
     "temperature": 0.0,
-    "min_type": "line", 
-    "randomize_comps": False 
+    "min_type": "line"
+    },
+"GENETIC":
+    {
+    "mutation_rate": 0.5,
+    "mutation_types": {"perturb": 0.0, "change_ele": 0.0, "atom_count" : 0.0, "volume" : 0.0, "minimize" : 1.0}, 
+    "population_size": 4,
+    "ngenerations": 2,
+    "max_atoms": 100,
+    "min_atoms": 10,
+    "max_length_aspect": 2.0,
+    "max_angle_aspect": 2.0,
+    "density_ratio": 1.1,
+    "composition_constraint": {'W':1.0}
     }
 }
 
@@ -70,10 +82,10 @@ grs = GRS(settings,comm=comm)
 updated_struct = settings["TARGET"]["start_fname"]
 grs.set_prior([updated_struct])
 
-for i in range(10):
-#    grs.update_prior()
-    updated_struct = grs.gradient_move(updated_struct)
-    updated_struct = grs.update_start(updated_struct,"MinScore")
-    grs.set_prior(glob.glob(settings['TARGET']["job_prefix"]+"*.data"))
+scores = grs.genetic_move(updated_struct)
+
+#updated_struct = grs.gradient_move(updated_struct)
+#updated_struct = grs.update_start(updated_struct,"MinScore")
+#grs.set_prior(glob.glob(settings['TARGET']["job_prefix"]+"*.data"))
 
 exit()

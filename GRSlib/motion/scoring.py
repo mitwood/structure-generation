@@ -81,9 +81,10 @@ class Scoring:
 #        del self.lmp
         return score
 
-    def add_cmds_before_score(self,string):
+    def add_cmds_before_score(self,string,data):
+        self.data = data
         self.construct_lmp()
-        before_score = self.get_score()
+        before_score = self.get_score(data)
         self._extract_commands(string)
         self.lmp.commands_string("run 0")
         after_score = self.lmp.get_thermo("pe") # potential energy

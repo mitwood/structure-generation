@@ -15,12 +15,9 @@ class Convert:
         """
         Takes in an ase.Atoms object and writes a lammps-data, returns the file name
         """
-        fname_prefix = args
-        try:
-            fname = '%s.lammps-data' % fname_prefix
-        except:
-            fname = '%s.lammps-data' % data.symbols           
+        fname = args[0]
         write(fname, data, format='lammps-data', masses=True)
+        
         return fname
 
     def lammps_to_ase(self,data):

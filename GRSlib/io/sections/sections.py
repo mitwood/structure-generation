@@ -1,6 +1,7 @@
 from GRSlib.io.sections.error import ExitFunc
 #from distutils.util import strtobool
 from os import getcwd, path
+import ast
 
 def strtobool(val):    #distutils.util strtobool deprecated in python3.12
     val = val.lower()
@@ -62,6 +63,8 @@ class Section:
             convert = strtobool
         elif interpreter == "float":
             convert = float
+        elif interpreter == "dict":
+            convert = ast.literal_eval
         elif interpreter == "int" or interpreter == "integer":
             convert = int
         else:
