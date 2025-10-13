@@ -160,9 +160,9 @@ class Optimize:
                 gen_winners = winner
             #Now setup for the next iteration of the tournament
             scores = [] 
-#            for file in glob.glob(self.config.sections['TARGET'].job_prefix + "_Cand*Gen*"):
-#                if file not in gen_winners:
-#                    os.remove(file)
+            for file in glob.glob(self.config.sections['TARGET'].job_prefix + "_Cand*Gen*"):
+                if file not in gen_winners:
+                    os.remove(file)
 
             if np.random.rand() < float(self.config.sections['GENETIC'].mutation_rate):
                 batch = self.genetic.mutation(atoms_winner) #Will mutation only take in one structure?

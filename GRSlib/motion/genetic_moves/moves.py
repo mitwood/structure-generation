@@ -61,6 +61,20 @@ class GenMoves():
         new_atoms = Atoms(atom_symbols,positions=new_positions, cell=new_cell, pbc=[1,1,1])
         return new_atoms
 
+    def ortho_cell(atoms,config):
+        #Convert the cell to an orthorhombic cell
+        cell_lenx, cell_leny, cell_lenz = atoms.cell.cellpar()[0],atoms.cell.cellpar()[1],atoms.cell.cellpar()[2]
+        scaled_positions = atoms.get_scaled_positions()
+        atom_symbols = atoms.symbols
+        new_cell = np.eye(3,dtype=float)
+        new_cell[0][0] = atoms.cell.cellpar()[0]
+        new_cell[1][1] = atoms.cell.cellpar()[1]
+        new_cell[2][2] = atoms.cell.cellpar()[2]
+        new_positions = np.matmul(scaled_positions,new_cell)
+        new_atoms = Atoms(atom_symbols,positions=new_positions, cell=new_cell, pbc=[1,1,1])
+        return new_atoms
+
+
     def perturb(atoms,config):
         new_cell = atoms.get_cell() #Carry over the cell size from the supecell
         atom_symbols = atoms.symbols
