@@ -25,6 +25,10 @@ class Gradient:
         #Will construct a set of additional commands to send to LAMMPS before scoring
         add_cmds=\
         """delete_atoms overlap 0.3 all all
+        compute cluster all cluster/atom  0.3
+        compute max all reduce max c_cluster
+        variable exit equal c_max
+        fix halt all halt 10 v_exit > 1 error soft
         min_style  fire
         min_modify integrator eulerexplicit tmax 10.0 tmin 0.0 delaystep 5 dtgrow 1.1 dtshrink 0.5 alpha0 0.1 alphashrink 0.99 vdfmax 100000 halfstepback no initialdelay no
         dump 1 all custom 1 minimize_fire.dump id type x y z fx fy fz
@@ -39,6 +43,10 @@ class Gradient:
         #Will construct a set of additional commands to send to LAMMPS before scoring
         add_cmds=\
         """delete_atoms overlap 0.3 all all
+        compute cluster all cluster/atom  0.3
+        compute max all reduce max c_cluster
+        variable exit equal c_max
+        fix halt all halt 10 v_exit > 1 error soft
         min_style  cg
         min_modify dmax 0.05 line quadratic
         dump 1 all custom 1 minimize_line.dump id type x y z fx fy fz
@@ -54,6 +62,10 @@ class Gradient:
         #Will construct a set of additional commands to send to LAMMPS before scoring
         add_cmds=\
         """delete_atoms overlap 0.3 all all
+        compute cluster all cluster/atom  0.3
+        compute max all reduce max c_cluster
+        variable exit equal c_max
+        fix halt all halt 10 v_exit > 1 error soft
         in_style  cg
         min_modify dmax 0.05 line quadratic
         dump 1 all custom 1 minimize_box.dump id type x y z fx fy fz
@@ -68,7 +80,11 @@ class Gradient:
     def temp_min(self,data):
         #Will construct a set of additional commands to send to LAMMPS before scoring
         add_cmds=\
-        """velocity all create %s %s dist gaussian
+        """compute cluster all cluster/atom  0.3
+        compute max all reduce max c_cluster
+        variable exit equal c_max
+        fix halt all halt 10 v_exit > 1 error soft
+        velocity all create %s %s dist gaussian
         fix nve all nve
         fix lan all langevin %s %s 1.0 48279
         run %s

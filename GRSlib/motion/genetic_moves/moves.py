@@ -65,13 +65,13 @@ class GenMoves():
         new_cell = atoms.get_cell() #Carry over the cell size from the supecell
         atom_symbols = atoms.symbols
         new_positions = atoms.get_positions()
-        atom_length = (1/(3.)**(1./2.))*(len(atoms.numbers())/atoms.get_volume())*(1./3.) # Linear distance from average atomic volume, becomes max displacement distance
-        change_count = random.randint(1,round(len(atoms.numbers())/2)) #Perturb up to one-half the atom positions
+        atom_length = (1/(3.)**(1./2.))*(len(atoms.get_atomic_numbers())/atoms.get_volume())*(1./3.) # Linear distance from average atomic volume, becomes max displacement distance
+        change_count = random.randint(1,round(len(atoms.get_atomic_numbers())/2)) #Perturb up to one-half the atom positions
         for i in range(change_count):
-            pertub_id = random.randint(0,len(atoms.numbers())-1)
-            new_positions[id][0] += np.random.uniform(low=-atom_length,high=atom_length)
-            new_positions[id][1] += np.random.uniform(low=-atom_length,high=atom_length)
-            new_positions[id][2] += np.random.uniform(low=-atom_length,high=atom_length)
+            pertub_id = random.randint(0,len(atoms.get_atomic_numbers())-1)
+            new_positions[pertub_id][0] += np.random.uniform(low=-atom_length,high=atom_length)
+            new_positions[pertub_id][1] += np.random.uniform(low=-atom_length,high=atom_length)
+            new_positions[pertub_id][2] += np.random.uniform(low=-atom_length,high=atom_length)
 
         new_atoms = Atoms(atom_symbols,positions=new_positions, cell=new_cell, pbc=[1,1,1])
         return new_atoms
