@@ -54,13 +54,12 @@ class Scoring:
               
     def get_atomic_energies(self):
         #Return as array per-atom energies for the set of potentials applied
-        lammps.mliap.activate_mliappy(self.lmp)
         self.construct_lmp()
         self.lmp.command("compute peatom all pe/atom")
         self.lmp.command("run 0")
         num_atoms = self.lmp.extract_global("natoms")
         atom_energy = _extract_compute_np(self.lmp, "peatom", 0, 2, (num_atoms, 1))
-        del self.lmp
+#        del self.lmp
         return atom_energy
 
     def get_norm_forces(self):
@@ -70,7 +69,7 @@ class Scoring:
         self.lmp.command("run 0")
         num_atoms = self.lmp.extract_global("natoms")
         atom_forces = _extract_compute_np(self.lmp, "fatom", 0, 2, (num_atoms, 3))        
-        del self.lmp
+#        del self.lmp
         return atom_forces
 
     def get_score(self,data):
@@ -78,17 +77,21 @@ class Scoring:
         self.construct_lmp()
         self.lmp.command("run 0")
         score = self.lmp.get_thermo("pe") # potential energy
-        del self.lmp
+#        del self.lmp
         return score
 
     def add_cmds_before_score(self,string,data):
         self.data = data
         self.construct_lmp()
         before_score = self.get_score(data)
-        self._extract_commands(string)
-        self.lmp.commands_string("run 0")
-        after_score = self.lmp.get_thermo("pe") # potential energy
-        del self._lmp
+        try:
+            self._extract_commands(string)
+            self.lmp.commands_string("run 0")
+            after_score = self.lmp.get_thermo("pe") # potential energy
+        except:
+            print("LAMMPS Crashed, reported score will be prior to motion.")
+            after_score = before_score
+#        del self.lmp
         return before_score, after_score
 
     def _extract_commands(self,string):

@@ -80,7 +80,8 @@ class Gradient:
     def temp_min(self,data):
         #Will construct a set of additional commands to send to LAMMPS before scoring
         add_cmds=\
-        """compute cluster all cluster/atom  0.3
+        """delete_atoms overlap 0.3 all all
+        compute cluster all cluster/atom 0.3
         compute max all reduce max c_cluster
         variable exit equal c_max
         fix halt all halt 10 v_exit > 1 error soft
@@ -98,10 +99,8 @@ class Gradient:
         write_data %s_last.data""" % (self.config.sections['GRADIENT'].temperature, np.random.randint(low=1, high=99999), 
                                       self.config.sections['GRADIENT'].temperature, self.config.sections['GRADIENT'].temperature, 
                                       self.config.sections['GRADIENT'].nsteps, self.config.sections['GRADIENT'].nsteps, 
-                                      self.config.sections['GRADIENT'].nsteps, self.config.sections['GRADIENT'].nsteps, 
-                                      self.config.sections['TARGET'].job_prefix)
-
-        before_score, after_score = Scoring.add_cmds_before_score(add_cmds,data)
+                                      self.config.sections['GRADIENT'].nsteps, self.config.sections['TARGET'].job_prefix)
+        before_score, after_score = self.scoring.add_cmds_before_score(add_cmds,data)
         end_data = self.config.sections['TARGET'].job_prefix + "_last.data"
         return before_score, after_score, end_data
 
@@ -142,13 +141,16 @@ class Optimize:
                     loser = compare_pair[0]
                     selection.pop(loser)
             #At the last round, hold onto the runner up for a possible crossover
-            print(iteration,selection)
-            if selection[0][3] <= selection[0][3]:
+            if selection[0][3] <= selection[1][3]:
                 winner = selection[0]
                 runner_up = selection[1]
             else:
                 winner = selection[1]
                 runner_up = selection[0]
+
+            print("Iteration:",iteration, "Winner:",winner, "Second:",runner_up)
+            with open("scoring_%s.txt"%self.config.sections['TARGET'].job_prefix, "a") as f:
+                print(iteration, winner, runner_up, file=f)
 
             atoms_winner = self.convert.lammps_to_ase(winner[2])
             atoms_runner_up = self.convert.lammps_to_ase(runner_up[2])
