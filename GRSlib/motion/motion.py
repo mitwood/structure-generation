@@ -24,7 +24,8 @@ class Gradient:
     def fire_min(self,data):
         #Will construct a set of additional commands to send to LAMMPS before scoring
         add_cmds=\
-        """min_style  fire
+        """delete_atoms overlap 0.3 all all
+        min_style  fire
         min_modify integrator eulerexplicit tmax 10.0 tmin 0.0 delaystep 5 dtgrow 1.1 dtshrink 0.5 alpha0 0.1 alphashrink 0.99 vdfmax 100000 halfstepback no initialdelay no
         dump 1 all custom 1 minimize_fire.dump id type x y z fx fy fz
         displace_atoms all random 0.1 0.1 0.1 %s units box
@@ -37,7 +38,8 @@ class Gradient:
     def line_min(self,data):
         #Will construct a set of additional commands to send to LAMMPS before scoring
         add_cmds=\
-        """min_style  cg
+        """delete_atoms overlap 0.3 all all
+        min_style  cg
         min_modify dmax 0.05 line quadratic
         dump 1 all custom 1 minimize_line.dump id type x y z fx fy fz
         displace_atoms all random 0.1 0.1 0.1 %s units box
@@ -51,7 +53,8 @@ class Gradient:
     def box_min(self,data):
         #Will construct a set of additional commands to send to LAMMPS before scoring
         add_cmds=\
-        """min_style  cg
+        """delete_atoms overlap 0.3 all all
+        in_style  cg
         min_modify dmax 0.05 line quadratic
         dump 1 all custom 1 minimize_box.dump id type x y z fx fy fz
         fix box all box/relax iso 0.0 vmax 0.001
@@ -71,6 +74,7 @@ class Gradient:
         run %s
         unfix nve
         unfix lan
+        delete_atoms overlap 0.3 all all
         min_style  fire
         min_modify integrator eulerexplicit tmax 10.0 tmin 0.0 delaystep 5 dtgrow 1.1 dtshrink 0.5 alpha0 0.1 alphashrink 0.99 vdfmax 100000 halfstepback no initialdelay no
         dump 1 all custom 1 run_minimize.dump id type x y z fx fy fz
