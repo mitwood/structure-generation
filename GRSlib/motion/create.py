@@ -12,19 +12,19 @@ import random
 
 class Create:
 
-    def __init__(self, pt, config):
+    def __init__(self, pt, config, convert):
         self.pt = pt #ParallelTools()
         self.config = config #Config()
+        self.convert = convert #Convert()
         #pop_size,all_species,cell,data_type,nchem
         # Any number of variables to create structures can be stashed here in self. instead of 
         # passing them into the individual functions.
 
     def starting_generation(self, *args):
         #More of a super function that will call a bunch of the ones below
-
         start_type = "from_"+self.config.sections["GENETIC"].start_type
         fn_start = getattr(Create, start_type) 
-        population = fn_start(self) #Not a big fan of this method, feels clunky to switch start points.
+        population = fn_start(self,args) #Not a big fan of this method, feels clunky to switch start points.
 
         #TODO Currently this is a copy/paste of the old code, needs work.
         """
@@ -87,19 +87,22 @@ class Create:
         return population
 
     #Starting point types:
-    def from_template(self):
+    def from_template(self,*args):
         #More of a super function that will call a bunch of the ones below
-        print("Starting population using provided template")
+#        print("Starting population using provided template")
+        population = []
+        duplicate = self.convert.lammps_to_ase(args[0][0])
+        for candidate in range(self.config.sections["GENETIC"].population_size):
+            population.append(duplicate)
+        return population
+    
+    def from_lattice(self,*args):
+        #More of a super function that will call a bunch of the ones below
+#        print("Starting population using provided lattice type")
         population = []
         return population
     
-    def from_lattice(self):
-        #More of a super function that will call a bunch of the ones below
-        print("Starting population using provided lattice type")
-        population = []
-        return population
-    
-    def from_random(self):
+    def from_random(self,*args):
         #More of a super function that will call a bunch of the ones below
         #print("Starting population of random low energy structures of provided elements")
         population = []

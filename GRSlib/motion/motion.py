@@ -91,6 +91,7 @@ class Gradient:
         run %s
         unfix nve
         unfix lan
+        write_data %s_last.data
         delete_atoms overlap 0.3 all all
         min_style  fire
         min_modify integrator eulerexplicit tmax 10.0 tmin 0.0 delaystep 5 dtgrow 1.1 dtshrink 0.5 alpha0 0.1 alphashrink 0.99 vdfmax 100000 halfstepback no initialdelay no
@@ -98,7 +99,7 @@ class Gradient:
         minimize 1e-6 1e-6 %s %s
         write_data %s_last.data""" % (self.config.sections['GRADIENT'].temperature, np.random.randint(low=1, high=99999), 
                                       self.config.sections['GRADIENT'].temperature, self.config.sections['GRADIENT'].temperature, 
-                                      self.config.sections['GRADIENT'].nsteps, self.config.sections['GRADIENT'].nsteps, 
+                                      self.config.sections['GRADIENT'].nsteps, self.config.sections['TARGET'].job_prefix, self.config.sections['GRADIENT'].nsteps, 
                                       self.config.sections['GRADIENT'].nsteps, self.config.sections['TARGET'].job_prefix)
         before_score, after_score = self.scoring.add_cmds_before_score(add_cmds,data)
         end_data = self.config.sections['TARGET'].job_prefix + "_last.data"
@@ -111,23 +112,22 @@ class Optimize:
         self.config = config #Config()
         self.scoring = scoring
         self.convert = convert
-        self.create = Create.starting_generation(self, self.pt, self.config)
+        self.create = Create(self.pt, self.config, self.convert)
         self.gradmove = Gradient(pt, config, scoring)
 
-    def unique_tournament_selection(self, *args):
+    def unique_tournament_selection(self, data):
         #More of a super function that will call a bunch of the ones below
         #This should be the default since we dont want to send duplicates the crossover/mutation
-        self.genetic = Genetic(self.pt, self.config,self.convert,self.scoring,self.gradmove)       
-        starting_generation = Create.starting_generation(self)
+        self.genetic = Genetic(self.pt, self.config,self.convert,self.scoring,self.gradmove)    
+        starting_generation = Create.starting_generation(self,data)
         scores = []
-
+        gen_winners = []
         for candidate in range(len(starting_generation)):
             file_name = self.config.sections['TARGET'].job_prefix+"_Cand%sGen%s.lammps-data"%(candidate,'Init')
             lammps_data = self.convert.ase_to_lammps(starting_generation[candidate],file_name)
             #Honestly I would prefer scores as a dictonary of Key:Item pairs, TODO later.
             scores.append(['Init', candidate, file_name, self.scoring.get_score(lammps_data)])
 #            shutil.move(lammps_data, self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.data"%(candidate,0))
-        
         for iteration in range(self.config.sections['GENETIC'].ngenerations):               
 #            selection = np.unique(scores[:2])#Cull candidates for uniqueness. 0: generation, 1: id, 2: file-name, 3: score
             selection = scores.copy() 
@@ -155,17 +155,11 @@ class Optimize:
             atoms_winner = self.convert.lammps_to_ase(winner[2])
             atoms_runner_up = self.convert.lammps_to_ase(runner_up[2])
 
-            #Winning candidate is then appended to winners circle list : [generation, ase.Atoms, score]
-            try:
-                gen_winners = np.c_[gen_winners, winner] #appends arrays along the first axis (row-wise)
-            except:
-                gen_winners = winner
+            #Winning candidate is then appended to winners circle list 
+            gen_winners.append(winner) #appends arrays along the first axis (row-wise)
+
             #Now setup for the next iteration of the tournament
             scores = [] 
-            for file in glob.glob(self.config.sections['TARGET'].job_prefix + "_Cand*Gen*"):
-                if file not in gen_winners:
-                    os.remove(file)
-
             if np.random.rand() < float(self.config.sections['GENETIC'].mutation_rate):
                 batch = self.genetic.mutation(atoms_winner) #Will mutation only take in one structure?
             else:
@@ -176,6 +170,10 @@ class Optimize:
                 lammps_data = self.convert.ase_to_lammps(starting_generation[candidate],file_name)
                 scores.append([iteration, candidate, file_name, self.scoring.get_score(lammps_data)])
                 #shutil.move(lammps_data, self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.data"%(candidate,iteration))
+
+        for file in glob.glob(self.config.sections['TARGET'].job_prefix + "_Cand*Gen*"):
+            if file not in  [row[2] for row in gen_winners]:
+                os.remove(file)
 
         return gen_winners
         #End of tournament returns winners circle list to GRS.py -> (convert.ASEtoLAMMPS + write score output)

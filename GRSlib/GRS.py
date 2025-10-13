@@ -154,6 +154,7 @@ class GRS:
             self.descriptors['target'] = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
         self.descriptors['current'] = self.convert_to_desc(data)
         
+        print(self.descriptors.get('prior',None))
         if self.descriptors.get('prior',None)==None: 
             self.set_prior([self.config.sections['TARGET'].start_fname])
 
@@ -195,12 +196,10 @@ class GRS:
         self.score = Scoring(self.pt, self.config, self.loss_func, self.descriptors)  # Set scoring class to assign scores to moves
         self.genmove = Optimize(self.pt, self.config, self.score, self.convert) #Set desired motion class with scoring attached
         
-        gen_scores = self.genmove.unique_tournament_selection()
+        gen_scores = self.genmove.unique_tournament_selection(data)
         #self.write_output()
-        print(gen_scores)
-        #print(np.min(gen_scores, axis=0))
-        
-        return gen_scores
+        best_candidate = sorted(gen_scores,key=lambda x: x[3])[0][2]
+        return gen_scores, best_candidate
 
 
 #    @self.pt.single_timeit 
@@ -228,7 +227,7 @@ class GRS:
         self.gradmove = Gradient(self.pt, self.config, self.score) #Set desired motion class with scoring attached
         grad_type = self.config.sections['GRADIENT'].min_type + '_min'
         event = getattr(self.gradmove, grad_type)
-        self.before_score, selfafter_score, data = event(data)
+        self.before_score, self.after_score, data = event(data)
         
         store_id = len(glob.glob(self.config.sections['TARGET'].job_prefix+"*.data"))
         with open("scoring_%s.txt"%self.config.sections['TARGET'].job_prefix, "a") as f:
