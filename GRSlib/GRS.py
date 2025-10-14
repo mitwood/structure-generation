@@ -154,9 +154,11 @@ class GRS:
             self.descriptors['target'] = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
         self.descriptors['current'] = self.convert_to_desc(data)
         
-        print(self.descriptors.get('prior',None))
-        if self.descriptors.get('prior',None)==None: 
-            self.set_prior([self.config.sections['TARGET'].start_fname])
+        try:
+            if self.descriptors.get('prior',None)==None: 
+                self.set_prior([self.config.sections['TARGET'].start_fname])
+        except:
+            pass
 
         if (np.shape(self.descriptors['current'][1])==np.shape(self.descriptors['target'][1])):
             #Define scoring method now that descriptors and starting data are available
