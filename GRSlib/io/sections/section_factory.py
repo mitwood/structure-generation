@@ -4,7 +4,7 @@ from GRSlib.io.sections.error import ExitFunc
 from GRSlib.io.sections.basis import Basis
 from GRSlib.io.sections.constraint import Constraint
 from GRSlib.io.sections.genetic import Genetic
-from GRSlib.io.sections.motion import Motion
+from GRSlib.io.sections.gradient import Gradient
 from GRSlib.io.sections.output import Output
 from GRSlib.io.sections.scoring import Scoring
 from GRSlib.io.sections.target import Target

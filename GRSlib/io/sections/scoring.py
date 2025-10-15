@@ -10,8 +10,8 @@ class Scoring(Section):
                             'strength_prior','exact_distribution','internal_entropy','ensemble_entropy']
         self._check_section()
         self.score_type = self.get_value("SCORING", "score_type", None)
-        self.strength_target = self.get_value("SCORING", "strength_target", 1.0)
-        self.strength_prior = self.get_value("SCORING", "strength_prior", 0.0)
+        self.strength_target = self.get_value("SCORING", "strength_target", 1.0, interpreter="float")
+        self.strength_prior = self.get_value("SCORING", "strength_prior", 0.0, interpreter="float")
         self.exact_distribution = self.get_value("SCORING", "exact_distribution", False)
         if self.score_type == "moments":
             self.moments = self.get_value("SCORING", "moments", "mean stdev").split()

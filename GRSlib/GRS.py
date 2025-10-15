@@ -154,13 +154,16 @@ class GRS:
             self.descriptors['target'] = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
         self.descriptors['current'] = self.convert_to_desc(data)
         
-        if self.descriptors.get('prior',None)==None: 
-            self.set_prior([self.config.sections['TARGET'].start_fname])
+        try:
+            if self.descriptors.get('prior',None)==None: 
+                self.set_prior([self.config.sections['TARGET'].start_fname])
+        except:
+            pass
 
         if (np.shape(self.descriptors['current'][1])==np.shape(self.descriptors['target'][1])):
             #Define scoring method now that descriptors and starting data are available
-            self.score = Scoring(self.pt, self.config, self.loss_func, data, self.descriptors) 
-            score = self.score.get_score() 
+            self.score = Scoring(self.pt, self.config, self.loss_func, self.descriptors) 
+            score = self.score.get_score(data) 
         else:
             raise RuntimeError(">>> Found unmatched BASIS for target and current descriptors")
             
@@ -179,9 +182,6 @@ class GRS:
         """
         Hybridize or mutate a structure using a set of moves sampled via a genetic algorithm
         """
-#        @self.pt.single_timeit
-#        def genetic_move():
-#        genetic_move()
         #1) Propose a set of structures from templates, ase, or random (or read in a list of ase.Aatoms objects)
         #2) Score each of the candidates (ase_to_lammps -> run_single)
         #3) Hybridize, Mutate based on set of rules and probabilities
@@ -195,13 +195,14 @@ class GRS:
         except:
             self.descriptors['target'] = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
    
-        self.score = Scoring(self.pt, self.config, self.loss_func, data, self.descriptors)  # Set scoring class to assign scores to moves
-        self.genmove = Optimize(self.pt, self.config, self.score) #Set desired motion class with scoring attached
+        self.score = Scoring(self.pt, self.config, self.loss_func, self.descriptors)  # Set scoring class to assign scores to moves
+        self.genmove = Optimize(self.pt, self.config, self.score, self.convert) #Set desired motion class with scoring attached
         
-        
-        #self.genmove.tournament_selection()
-        #for iterations in top_candidates[1], convert.ase_to_lammps
+        gen_scores = self.genmove.unique_tournament_selection(data)
         #self.write_output()
+        best_candidate = sorted(gen_scores,key=lambda x: x[3])[0][2]
+        return gen_scores, best_candidate
+
 
 #    @self.pt.single_timeit 
     def gradient_move(self,data):
@@ -209,9 +210,6 @@ class GRS:
         Accepts a structure (xyz, ase.Atoms) as input and will return updated structure (xyz, ase.Atoms) that 
         has been modified by motion of atoms on the loss function potential
         """
-#        @self.pt.single_timeit 
-#        def gradient_move():
-#        gradient_move()
         #1) Take in target descriptors, convert to moments of descriptor distribution or other loss function
         #2) Take in current descriptors, convert to moments of descriptor distribution or other loss function
         #3) Construct a fictitious potential energy surface based on difference in moments or other loss function (self.loss_func)
@@ -227,18 +225,15 @@ class GRS:
         except:
             self.descriptors['target'] = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
    
-        self.score = Scoring(self.pt, self.config, self.loss_func, data, self.descriptors)  # Set scoring class to assign scores to moves
-        self.gradmove = Gradient(self.pt, self.config, data, self.score) #Set desired motion class with scoring attached
-        if self.config.sections['MOTION'].min_type == 'fire':
-            self.before_score, self.after_score, data = self.gradmove.fire_min()
-        elif self.config.sections['MOTION'].min_type == 'line':
-            self.before_score, self.after_score, data = self.gradmove.line_min()
-        elif self.config.sections['MOTION'].min_type == 'box':
-            self.before_score, self.after_score, data = self.gradmove.box_min()
-        elif self.config.sections['MOTION'].min_type == 'temp':
-            self.before_score, self.after_score, data = self.gradmove.run_then_min()
+        self.score = Scoring(self.pt, self.config, self.loss_func, self.descriptors)  # Set scoring class to assign scores to moves
+        self.gradmove = Gradient(self.pt, self.config, self.score) #Set desired motion class with scoring attached
+        grad_type = self.config.sections['GRADIENT'].min_type + '_min'
+        event = getattr(self.gradmove, grad_type)
+        self.before_score, self.after_score, data = event(data)
         
-        self.write_output()
+        store_id = len(glob.glob(self.config.sections['TARGET'].job_prefix+"*.data"))
+        with open("scoring_%s.txt"%self.config.sections['TARGET'].job_prefix, "a") as f:
+            print(store_id,self.before_score, self.after_score, file=f)
         
         return data
 

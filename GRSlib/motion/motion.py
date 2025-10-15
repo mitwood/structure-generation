@@ -2,9 +2,9 @@
 #from GRSlib.motion.scoring_factory import scoring
 from GRSlib.motion.scoring import Scoring
 from GRSlib.motion.genetic import Genetic
-from GRSlib.motion.create import Create
+from GRSlib.motion.create import *
 import numpy as np
-import random
+import random, shutil, os, glob
 
 # Two types of motion (aka changes) can be applied to a structure 1) Gradients of the loss function (energy/score) 
 # yielding continuous changes, or 2) discrete moves that include (atom addition/removal, chemical identities).
@@ -16,82 +16,167 @@ import random
 
 class Gradient:
 
-    def __init__(self, pt, config, data, scoring):
+    def __init__(self, pt, config, scoring):
         self.pt = pt #ParallelTools()
         self.config = config #Config()
-        self.data = data
         self.scoring = scoring
 
-    def fire_min(self):
+    def fire_min(self,data):
         #Will construct a set of additional commands to send to LAMMPS before scoring
         add_cmds=\
-        """min_style  fire
+        """delete_atoms overlap 0.3 all all
+        compute cluster all cluster/atom  0.3
+        compute max all reduce max c_cluster
+        variable exit equal c_max
+        fix halt all halt 10 v_exit > 1 error soft
+        min_style  fire
         min_modify integrator eulerexplicit tmax 10.0 tmin 0.0 delaystep 5 dtgrow 1.1 dtshrink 0.5 alpha0 0.1 alphashrink 0.99 vdfmax 100000 halfstepback no initialdelay no
         dump 1 all custom 1 minimize_fire.dump id type x y z fx fy fz
         displace_atoms all random 0.1 0.1 0.1 %s units box
         minimize 1e-6 1e-6 %s %s
-        write_data %s_last.data""" % (np.random.randint(low=1, high=99999),self.config.sections['MOTION'].nsteps, self.config.sections['MOTION'].nsteps, self.config.sections['TARGET'].job_prefix)
-        before_score, after_score = self.scoring.add_cmds_before_score(add_cmds)
+        write_data %s_last.data""" % (np.random.randint(low=1, high=99999),self.config.sections['GRADIENT'].nsteps, self.config.sections['GRADIENT'].nsteps, self.config.sections['TARGET'].job_prefix)
+        before_score, after_score = self.scoring.add_cmds_before_score(add_cmds,data)
         end_data = self.config.sections['TARGET'].job_prefix + "_last.data"
         return before_score, after_score, end_data
 
-    def line_min(self):
+    def line_min(self,data):
         #Will construct a set of additional commands to send to LAMMPS before scoring
         add_cmds=\
-        """min_style  cg
+        """delete_atoms overlap 0.3 all all
+        compute cluster all cluster/atom  0.3
+        compute max all reduce max c_cluster
+        variable exit equal c_max
+        fix halt all halt 10 v_exit > 1 error soft
+        min_style  cg
         min_modify dmax 0.05 line quadratic
         dump 1 all custom 1 minimize_line.dump id type x y z fx fy fz
         displace_atoms all random 0.1 0.1 0.1 %s units box
         minimize 1e-6 1e-6 %s %s
         write_data %s_last.data
-        """ % (np.random.randint(low=1, high=99999),self.config.sections['MOTION'].nsteps, self.config.sections['MOTION'].nsteps, self.config.sections['TARGET'].job_prefix)
-        before_score, after_score = self.scoring.add_cmds_before_score(add_cmds)
+        """ % (np.random.randint(low=1, high=99999),self.config.sections['GRADIENT'].nsteps, self.config.sections['GRADIENT'].nsteps, self.config.sections['TARGET'].job_prefix)
+        before_score, after_score = self.scoring.add_cmds_before_score(add_cmds,data)
         end_data = self.config.sections['TARGET'].job_prefix + "_last.data"
         return before_score, after_score, end_data
 
-    def box_min(self):
+    def box_min(self,data):
         #Will construct a set of additional commands to send to LAMMPS before scoring
         add_cmds=\
-        """min_style  cg
+        """delete_atoms overlap 0.3 all all
+        compute cluster all cluster/atom  0.3
+        compute max all reduce max c_cluster
+        variable exit equal c_max
+        fix halt all halt 10 v_exit > 1 error soft
+        in_style  cg
         min_modify dmax 0.05 line quadratic
         dump 1 all custom 1 minimize_box.dump id type x y z fx fy fz
         fix box all box/relax iso 0.0 vmax 0.001
         displace_atoms all random 0.1 0.1 0.1 %s units box
         minimize 1e-6 1e-6 %s %s
-        write_data %s_last.data""" % (np.random.randint(low=1, high=99999),self.config.sections['MOTION'].nsteps, self.config.sections['MOTION'].nsteps, self.config.sections['TARGET'].job_prefix)
-        before_score, after_score = self.scoring.add_cmds_before_score(add_cmds)
+        write_data %s_last.data""" % (np.random.randint(low=1, high=99999),self.config.sections['GRADIENT'].nsteps, self.config.sections['GRADIENT'].nsteps, self.config.sections['TARGET'].job_prefix)
+        before_score, after_score = self.scoring.add_cmds_before_score(add_cmds,data)
         end_data = self.config.sections['TARGET'].job_prefix + "_last.data"
         return before_score, after_score, end_data
 
-    def run_then_min(self):
+    def temp_min(self,data):
         #Will construct a set of additional commands to send to LAMMPS before scoring
         add_cmds=\
-        """velocity all create %s %s dist gaussian
+        """delete_atoms overlap 0.3 all all
+        compute cluster all cluster/atom 0.3
+        compute max all reduce max c_cluster
+        variable exit equal c_max
+        fix halt all halt 10 v_exit > 1 error soft
+        velocity all create %s %s dist gaussian
         fix nve all nve
         fix lan all langevin %s %s 1.0 48279
         run %s
         unfix nve
         unfix lan
+        write_data %s_last.data
+        delete_atoms overlap 0.3 all all
         min_style  fire
         min_modify integrator eulerexplicit tmax 10.0 tmin 0.0 delaystep 5 dtgrow 1.1 dtshrink 0.5 alpha0 0.1 alphashrink 0.99 vdfmax 100000 halfstepback no initialdelay no
         dump 1 all custom 1 run_minimize.dump id type x y z fx fy fz
         minimize 1e-6 1e-6 %s %s
-        write_data %s_last.data""" % (self.config.sections['MOTION'].temperature, np.random.randint(low=1, high=99999), 
-                                      self.config.sections['MOTION'].temperature, self.config.sections['MOTION'].temperature, 
-                                      self.config.sections['MOTION'].nsteps, self.config.sections['MOTION'].nsteps, 
-                                      self.config.sections['MOTION'].nsteps, self.config.sections['MOTION'].nsteps, 
-                                      self.config.sections['TARGET'].job_prefix)
-
-        before_score, after_score = Scoring.add_cmds_before_score(add_cmds)
+        write_data %s_last.data""" % (self.config.sections['GRADIENT'].temperature, np.random.randint(low=1, high=99999), 
+                                      self.config.sections['GRADIENT'].temperature, self.config.sections['GRADIENT'].temperature, 
+                                      self.config.sections['GRADIENT'].nsteps, self.config.sections['TARGET'].job_prefix, self.config.sections['GRADIENT'].nsteps, 
+                                      self.config.sections['GRADIENT'].nsteps, self.config.sections['TARGET'].job_prefix)
+        before_score, after_score = self.scoring.add_cmds_before_score(add_cmds,data)
         end_data = self.config.sections['TARGET'].job_prefix + "_last.data"
         return before_score, after_score, end_data
 
 class Optimize:
 
-    def __init__(self, pt, config, scoring):
+    def __init__(self, pt, config, scoring, convert):
         self.pt = pt #ParallelTools()
         self.config = config #Config()
         self.scoring = scoring
+        self.convert = convert
+        self.create = Create(self.pt, self.config, self.convert)
+        self.gradmove = Gradient(pt, config, scoring)
+
+    def unique_tournament_selection(self, data):
+        #More of a super function that will call a bunch of the ones below
+        #This should be the default since we dont want to send duplicates the crossover/mutation
+        self.genetic = Genetic(self.pt, self.config,self.convert,self.scoring,self.gradmove)    
+        starting_generation = Create.starting_generation(self,data)
+        scores = []
+        gen_winners = []
+        for candidate in range(len(starting_generation)):
+            file_name = self.config.sections['TARGET'].job_prefix+"_Cand%sGen%s.lammps-data"%(candidate,'Init')
+            lammps_data = self.convert.ase_to_lammps(starting_generation[candidate],file_name)
+            #Honestly I would prefer scores as a dictonary of Key:Item pairs, TODO later.
+            scores.append(['Init', candidate, file_name, self.scoring.get_score(lammps_data)])
+#            shutil.move(lammps_data, self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.data"%(candidate,0))
+        for iteration in range(self.config.sections['GENETIC'].ngenerations):               
+#            selection = np.unique(scores[:2])#Cull candidates for uniqueness. 0: generation, 1: id, 2: file-name, 3: score
+            selection = scores.copy() 
+            for round in range(len(selection)-2): #-2 because we want to keep the best and second-best for crossover
+                compare_pair = np.random.randint(0, len(selection), 2)
+                #This is where a dictionary of score/selection would be nice and clean instead of fixed index references.
+                if scores[compare_pair[0]][3] <= scores[compare_pair[1]][3]:
+                    loser = compare_pair[1]
+                    selection.pop(loser)
+                else:
+                    loser = compare_pair[0]
+                    selection.pop(loser)
+            #At the last round, hold onto the runner up for a possible crossover
+            if selection[0][3] <= selection[1][3]:
+                winner = selection[0]
+                runner_up = selection[1]
+            else:
+                winner = selection[1]
+                runner_up = selection[0]
+
+            print("Iteration:",iteration, "Winner:",winner, "Second:",runner_up)
+            with open("scoring_%s.txt"%self.config.sections['TARGET'].job_prefix, "a") as f:
+                print(iteration, winner, runner_up, file=f)
+
+            atoms_winner = self.convert.lammps_to_ase(winner[2])
+            atoms_runner_up = self.convert.lammps_to_ase(runner_up[2])
+
+            #Winning candidate is then appended to winners circle list 
+            gen_winners.append(winner) #appends arrays along the first axis (row-wise)
+
+            #Now setup for the next iteration of the tournament
+            scores = [] 
+            if np.random.rand() < float(self.config.sections['GENETIC'].mutation_rate):
+                batch = self.genetic.mutation(atoms_winner) #Will mutation only take in one structure?
+            else:
+                batch = self.genetic.crossover(atoms_winner, atoms_runner_up) #Should have two structures
+
+            for candidate in range(len(batch)):
+                file_name = self.config.sections['TARGET'].job_prefix+"_Cand%sGen%s.lammps-data"%(candidate,iteration)
+                lammps_data = self.convert.ase_to_lammps(starting_generation[candidate],file_name)
+                scores.append([iteration, candidate, file_name, self.scoring.get_score(lammps_data)])
+                #shutil.move(lammps_data, self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.data"%(candidate,iteration))
+
+        for file in glob.glob(self.config.sections['TARGET'].job_prefix + "_Cand*Gen*"):
+            if file not in  [row[2] for row in gen_winners]:
+                os.remove(file)
+
+        return gen_winners
+        #End of tournament returns winners circle list to GRS.py -> (convert.ASEtoLAMMPS + write score output)
 
     def latin_hyper(self, **kwargs):
         #placeholder for equal sampling accross input space of generated strucutres
@@ -105,83 +190,3 @@ class Optimize:
         #placeholder, possible for DAKOTA or pyMOO coupling?
         pass
     
-    def tournament_selection(self, *args):
-        #More of a super function that will call a bunch of the ones below
-        #TODO Currently this is a copy/paste of the old code, needs work.
-        
-        starting_generation = Create.starting_generation()
-        scores = []
-
-        for candidate in len(starting_generation):
-            scores.append(self.scoring.get_score(starting_generation[candidate]))
-
-        data = np.c_[starting_generation, scores] #appends arrays along the second axis (column-wise)
-        
-        selection = starting_generation.copy() # copy so we can pop elements out
-
-        for iteration in self.config.sections['GENETIC'].num_generations:               
-            # Pick 2 indicies to compare and add the best of to the selection list (e.g. perform a tournament)
-            for round in len(selection)-1:
-                compare_pair = np.random.randint(0, len(selection), 2)
-                if scores[compare_pair[0]] <= scores[compare_pair[1]]:
-                    loser = compare_pair[1]
-                    selection.pop(loser)
-                else:
-                    loser = compare_pair[0]
-                    selection.pop(loser)
-            winner = [iteration, selection, min(scores[compare_pair[0]],scores[compare_pair[1]])]
-    
-            #Winning candidate is then appended to winners circle list : [generation, ase.Atoms, score]
-            try:
-                gen_winners = np.c_[gen_winners, winner] #appends arrays along the first axis (row-wise)
-            except:
-                gen_winners = winner
-
-            #Now setup for the next iteration of the tournament
-            scores = [] 
-
-            if np.random.rand() < self.config.sections['GENETIC'].mutation_rate:
-                selection = Genetic.mutation(selection) #Will mutation only take in one structure?
-            else:
-                hybrid_pair = np.random.randint(0, len(gen_winners), 1)
-                selection = Genetic.crossover(selection, hybrid_pair) #Should have two structures
-
-            for candidate in len(selection):
-                scores.append(self.scoring.get_score(selection[candidate]))
-
-
-        #End of tournament returns winners circle list to GRS.py -> (convert.ASEtoLAMMPS + write score output)
-
-        return gen_winners
-        
-    def unique_tournament_selection(self, **kwargs):
-        #More of a super function that will call a bunch of the ones below
-        #TODO Currently this is a copy/paste of the old code, needs work.
-
-        #This should be the default since we dont want to send duplicates the crossover/mutation
-        scores = []
-        for candidate in len(population):
-            scores.append(Scoring.get_score(population[candidate]))
-        selection = []
-        for candidate in population:
-            if candidate not in selection:
-                selection.append(candidate)
-        # The structures to chose from should now only contain unique candidates, determined by score        
-
-        # Pick 2 indicies to compare and add the best of
-        # to the selection list (e.g. perform a tournament)
-        #Allow for a scoring anomoly at some low rate? else return min(scores)?
-        for round in len(selection)-1:
-            compare_pair = np.random.randint(0, len(selection), 2)
-            if scores[compare_pair[0]] <= scores[compare_pair[1]]:
-                loser = compare_pair[1]
-                selection.pop(loser)
-            else:
-                loser = compare_pair[0]
-                selection.pop(loser)
-        if np.random.rand() < self.config.sections['GENETIC'].mutation_rate:
-            nextgen_selection = self.mutation(selection) #Will mutation only take in one structure?
-        else:
-            nextgen_selection = self.crossover(selection) #Should have two structures
-        return nextgen_selection
-

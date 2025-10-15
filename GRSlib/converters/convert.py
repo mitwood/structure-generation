@@ -11,19 +11,23 @@ class Convert:
 #   Ok technically these functions dont do anything right now, but I'm holding onto them as
 #   boilerplate for the ASE conversions, or descriptor conversions that dont need LAMMPS
 
-    def ase_to_lammps(self,data):
+    def ase_to_lammps(self,data,*args):
         """
         Takes in an ase.Atoms object and writes a lammps-data, returns the file name
         """
-        fname = '%s.lammps-data' % data.symbols
+        fname = args[0]
         write(fname, data, format='lammps-data', masses=True)
+        
         return fname
 
     def lammps_to_ase(self,data):
         """
         Takes in a lammps-data file and returns an ase.Atoms object
         """
-        ase_data = read(data,format='lammps-data')
+        try:
+            ase_data = read(data,format='lammps-data')
+        except:
+            ase_data = read(data+".lammps-data",format='lammps-data')
         return ase_data
 
     def lammps_ace(self,data):

@@ -29,31 +29,32 @@ settings = \
     "strength_target": 1.0, 
     "strength_prior": 0.0, 
     "moments": "mean stdev" ,
-    "moments_coeff": "1.0 0.1",
+    "moments_coeff": "1.0 0.01",
     "moments_bonus": "0 0" ,
     },
 "TARGET":
     {
-    "target_fname": "bcc.data",
-    "target_fdesc": "bcc.npy",
-    "start_fname": "notbcc.data",
-    "job_prefix": "TrialGRS"
+    "target_fname": "fcc.data",
+    "target_fdesc": "fcc.npy",
+    "start_fname": "bcc.data",
+    "job_prefix": "BCCtoFCC"
     },
 "GRADIENT":
     {
     "soft_strength": 1.0,
     "ml_strength": 1.0,
     "nsteps": 1000,
-    "temperature": 0.0,
-    "min_type": "line"
+    "temperature": 100.0,
+    "min_type": "temp"
     },
 "GENETIC":
     {
-    "mutation_rate": 0.5,
-    "mutation_types": {"perturb": 0.0, "change_ele": 0.0, "atom_count" : 0.0, "volume" : 0.0, "minimize" : 1.0}, 
-    "population_size": 4,
-    "ngenerations": 2,
-    "max_atoms": 100,
+    "start_type": "random",  #Can be random or template right now. If template, starting generation is ["TARGET"].start_fname
+    "mutation_rate": 0.50,
+    "mutation_types": {"perturb": 0.2, "change_ele": 0.0, "atom_count" : 0.30, "volume" : 0.20, "minimize" : 0.2, "ortho_cell" : 0.10}, 
+    "population_size": 40,
+    "ngenerations": 10,
+    "max_atoms": 50,
     "min_atoms": 10,
     "max_length_aspect": 2.0,
     "max_angle_aspect": 2.0,
@@ -64,27 +65,18 @@ settings = \
 
 grs = GRS(settings,comm=comm)
 
-#testing of io class
-#grs.config.view_state()
-#-----------------------
-
-#testing of convert class
-#attributes = [attr for attr in dir(grs.convert) if not attr.startswith('__')]
-#print("attr of grs.convert:")
-#print(attributes)
-#current_desc = grs.convert_to_desc('bcc.data')
-#grs.genetic_move.tournament_selection(data=None)
-
-#score = grs.get_score(settings["TARGET"]["start_fname"])
-#print("     Score calculated through LAMMPS:",score)
-#print("Done checking socring!")
+score = grs.get_score(settings["TARGET"]["start_fname"])
+print("     Starting Score:",score)
 
 updated_struct = settings["TARGET"]["start_fname"]
 grs.set_prior([updated_struct])
 
-scores = grs.genetic_move(updated_struct)
+scores, best_struct = grs.genetic_move(updated_struct)
 
-#updated_struct = grs.gradient_move(updated_struct)
+updated_struct = grs.gradient_move(best_struct)
+score = grs.get_score(updated_struct)
+print("     Ending Score:",score)
+
 #updated_struct = grs.update_start(updated_struct,"MinScore")
 #grs.set_prior(glob.glob(settings['TARGET']["job_prefix"]+"*.data"))
 
