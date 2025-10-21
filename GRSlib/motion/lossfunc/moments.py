@@ -31,17 +31,17 @@ class Moments(Scoring):
             #TODO Explain
             score = self.construct_loss(current_desc, self.target_desc)
             energy[:] = 0
-            energy[0] = float(self.config.sections["SCORING"].strength_target)*score #Scaled score (energy) between current and target
+            energy[0] = self.config.sections["SCORING"].strength_target*score #Scaled score (energy) between current and target
             forces = self.grad_loss(current_desc, self.target_desc) #Forces between current and target
             beta[:,:]= 0
-            beta[:,self.mask] = float(self.config.sections["SCORING"].strength_target)*forces #Scaled forces between current and target
+            beta[:,self.mask] = self.config.sections["SCORING"].strength_target*forces #Scaled forces between current and target
 
             #TODO Explain
-            score = self.construct_loss(current_desc, self.prior_desc)
-#            energy[0] += float(self.config.sections["SCORING"].strength_prior)*score #Scaled score (energy) between current and prior
+            score = self.construct_loss(self.prior_desc, self.target_desc)
+            energy[0] += self.config.sections["SCORING"].strength_prior*score #Scaled score (energy) between current and prior
 #            print("     Target, Prior Scores: ", energy[0], score)
             forces = self.grad_loss(current_desc, self.prior_desc) #Forces between current and prior structures
-            beta[:,self.mask] += float(self.config.sections["SCORING"].strength_prior)*forces #Scaled forces between current and prior
+            beta[:,self.mask] += self.config.sections["SCORING"].strength_prior*forces #Scaled forces between current and prior
 
         elif self.mode=="update":
             self.update(args)

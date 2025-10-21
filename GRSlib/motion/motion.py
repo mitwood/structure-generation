@@ -148,7 +148,7 @@ class Optimize:
                 winner = selection[1]
                 runner_up = selection[0]
 
-            print("Iteration:",iteration, "Winner:",winner, "Second:",runner_up)
+            #print("Iteration:",iteration, "Winner:",winner, "Second:",runner_up)
             with open("scoring_%s.txt"%self.config.sections['TARGET'].job_prefix, "a") as f:
                 print(iteration, winner, runner_up, file=f)
 

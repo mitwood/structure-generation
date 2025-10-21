@@ -126,7 +126,7 @@ class Config():
 
         Args:
             sections: optional list of sections or string of a single section name (i.e. ['BASIS', 'CONSTRAINT']) 
-            original_input: optional, set this value to "True" to view the original input file (saved in self._original_config) instead of the current state. This can be useful for debugging or cloning FitSNAP input settings objects.
+            original_input: optional, set this value to "True" to view the original input file (saved in self._original_config) instead of the current state. This can be useful for debugging or cloning GRS input settings objects.
             
         """
 
