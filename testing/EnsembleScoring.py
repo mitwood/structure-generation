@@ -19,8 +19,8 @@ settings = \
     "ranks": "1 2 3",
     "lmax": "0 0 0",
     "lmin": "0 0 0",
-    "nmax": "12 1 1",
-    "nmaxbase": 12,
+    "nmax": "8 1 1",
+    "nmaxbase": 8,
     "bzeroflag": 0
     },
 "SCORING":
@@ -31,11 +31,12 @@ settings = \
     "moments": "mean stdev" ,
     "moments_coeff": "1.0 0.01",
     "moments_bonus": "0 0" ,
+    "smartmask": 0
     },
 "TARGET":
     {
-    "target_fname": "fcc.data",
-#    "target_fdesc": "fcc.npy",
+#    "target_fname": "fcc.data",
+    "target_fdesc": "target_descriptors_80.npy",
     "start_fname": "bcc.data",
     "prior_fdesc": "prior.npy",
     "job_prefix": "BCCtoFCC"
@@ -69,6 +70,6 @@ grs = GRS(settings,comm=comm)
 score = grs.get_score(settings["TARGET"]["start_fname"])
 print("     Starting Score:",score)
 
-grs.set_prior([settings["TARGET"]["start_fname"]])
+#grs.set_prior([settings["TARGET"]["start_fname"]])
 ensemble = grs.get_ensemble_score('native')
 print("Ensemble Score of Prior wrt Target:",ensemble)

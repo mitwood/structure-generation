@@ -149,10 +149,11 @@ class GRS:
         between file types (xyz=lammps-data, ase.Atoms, etc)
         """
         #Pass data to, and do something with the functs of scoring
-        if self.config.sections['TARGET'].target_fname is None:
+        #if self.config.sections['TARGET'].target_fname is None:
             #print("Provided target descriptors superceed target data file")
+        try:
             self.descriptors['target'] = np.load(self.config.sections['TARGET'].target_fdesc)    
-        else:
+        except:
             self.descriptors['target'] = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
         self.descriptors['current'] = self.convert_to_desc(data)
         
@@ -214,12 +215,14 @@ class GRS:
     
     def propose_structure(self):
         """
+        Currently not usable.
         Propose new structure from random, ase, or templates.
         """
         trial_struct = bulk(self.config.sections["BASIS"].elements[item])
         write('proposed.lammps-data', trial_struct, format='lammps-data', masses=True)
         return 'proposed.lammps-data'
 
+#    @self.pt.single_timeit 
     def genetic_move(self,data):
         """
         Hybridize or mutate a structure using a set of moves sampled via a genetic algorithm

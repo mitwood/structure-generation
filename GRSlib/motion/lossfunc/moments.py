@@ -59,7 +59,22 @@ class Moments(Scoring):
         self.target_desc = descriptors.get('target',None).copy()
         self.prior_desc = descriptors.get('prior',None).copy()
         self.n_descriptors = np.shape(self.target_desc)[1]
-        self.mask = list(range(self.n_descriptors))
+        if self.config.sections["SCORING"].smartmask > 0:
+            indices = []
+            target_std = np.std(self.target_desc, axis=0)
+            nmax_var = len(target_std) - int(np.ceil(self.config.sections["SCORING"].smartmask/2))
+            nmin_var = int(np.floor(self.config.sections["SCORING"].smartmask/2))
+            list_max_var = sorted(target_std,key=lambda x: x)[nmax_var:]
+            list_min_var = sorted(target_std,key=lambda x: x)[:nmin_var]
+            for val in list_max_var:
+                indices.append(np.where(target_std==val)[0][0])
+            for val in list_min_var:
+                indices.append(np.where(target_std==val)[0][0])
+
+            self.mask = np.zeros(len(target_std), dtype=int)
+            self.mask[indices] = 1
+        else:
+            self.mask = list(range(self.n_descriptors))
 
         if self.n_elements > 1:
             self.current_desc = self.current_desc.flatten()
