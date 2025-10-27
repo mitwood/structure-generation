@@ -38,7 +38,7 @@ class Moments(Scoring):
 
             #TODO Explain
             score = self.construct_loss(self.prior_desc, self.target_desc)
-            energy[0] += self.config.sections["SCORING"].strength_prior*score #Scaled score (energy) between current and prior
+#            energy[0] += self.config.sections["SCORING"].strength_prior*score #Scaled score (energy) between current and prior
 #            print("     Target, Prior Scores: ", energy[0], score)
             forces = self.grad_loss(current_desc, self.prior_desc) #Forces between current and prior structures
             beta[:,self.mask] += self.config.sections["SCORING"].strength_prior*forces #Scaled forces between current and prior
@@ -73,6 +73,7 @@ class Moments(Scoring):
 
             self.mask = np.zeros(len(target_std), dtype=int)
             self.mask[indices] = 1
+            
         else:
             self.mask = list(range(self.n_descriptors))
 

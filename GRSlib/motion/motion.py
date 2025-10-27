@@ -32,7 +32,7 @@ class Gradient:
         min_style  fire
         min_modify integrator eulerexplicit tmax 10.0 tmin 0.0 delaystep 5 dtgrow 1.1 dtshrink 0.5 alpha0 0.1 alphashrink 0.99 vdfmax 100000 halfstepback no initialdelay no
         dump 1 all custom 1 minimize_fire.dump id type x y z fx fy fz
-        displace_atoms all random 0.1 0.1 0.1 %s units box
+        displace_atoms all random 0.01 0.01 0.01 %s units box
         minimize 1e-6 1e-6 %s %s
         write_data %s_last.data""" % (np.random.randint(low=1, high=99999),self.config.sections['GRADIENT'].nsteps, self.config.sections['GRADIENT'].nsteps, self.config.sections['TARGET'].job_prefix)
         before_score, after_score = self.scoring.add_cmds_before_score(add_cmds,data)
@@ -50,7 +50,7 @@ class Gradient:
         min_style  cg
         min_modify dmax 0.05 line quadratic
         dump 1 all custom 1 minimize_line.dump id type x y z fx fy fz
-        displace_atoms all random 0.1 0.1 0.1 %s units box
+        displace_atoms all random 0.01 0.01 0.01 %s units box
         minimize 1e-6 1e-6 %s %s
         write_data %s_last.data
         """ % (np.random.randint(low=1, high=99999),self.config.sections['GRADIENT'].nsteps, self.config.sections['GRADIENT'].nsteps, self.config.sections['TARGET'].job_prefix)
@@ -70,7 +70,7 @@ class Gradient:
         min_modify dmax 0.05 line quadratic
         dump 1 all custom 1 minimize_box.dump id type x y z fx fy fz
         fix box all box/relax iso 0.0 vmax 0.001
-        displace_atoms all random 0.1 0.1 0.1 %s units box
+        displace_atoms all random 0.01 0.01 0.01 %s units box
         minimize 1e-6 1e-6 %s %s
         write_data %s_last.data""" % (np.random.randint(low=1, high=99999),self.config.sections['GRADIENT'].nsteps, self.config.sections['GRADIENT'].nsteps, self.config.sections['TARGET'].job_prefix)
         before_score, after_score = self.scoring.add_cmds_before_score(add_cmds,data)
