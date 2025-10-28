@@ -33,6 +33,7 @@ class Scoring:
 #        self.lmp = lammps(cmdargs = cmds)
         self.lmp = self.pt.initialize_lammps('log.lammps',0)
         lammps.mliap.activate_mliappy(self.lmp)
+        #NOTE thermo modify norm yes to make score magnitude (and soft contribution) independent of system size
         construct_string=\
         """
         units metal
@@ -45,6 +46,7 @@ class Scoring:
         neigh_modify one 10000
         thermo 10
         thermo_style custom step etotal temp press
+        thermo_modify norm yes
         """
         init_lmp=construct_string.format(self.data, self.config.sections["GRADIENT"].soft_strength, (" ".join(str(x) for x in self.config.sections['BASIS'].elements)))
         #TODO make the possibility to import any reference potential to be used with the mliap one
