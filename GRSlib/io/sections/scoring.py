@@ -7,12 +7,14 @@ class Scoring(Section):
     def __init__(self, name, config, pt,infile, args):
         super().__init__(name, config, pt, infile,args)
         self.allowedkeys = ['score_type','moments', 'moments_coeff', 'moments_bonus', 'strength_target',
-                            'strength_prior','exact_distribution','internal_entropy','ensemble_entropy']
+                            'strength_prior','exact_distribution','internal_entropy','ensemble_entropy',
+                            'norm_by_numdesc']
         self._check_section()
         self.score_type = self.get_value("SCORING", "score_type", None)
         self.strength_target = self.get_value("SCORING", "strength_target", 1.0, interpreter="float")
         self.strength_prior = self.get_value("SCORING", "strength_prior", 0.0, interpreter="float")
         self.exact_distribution = self.get_value("SCORING", "exact_distribution", False)
+        self.norm_by_numdesc = self.get_value("SCORING", "norm_by_numdesc", False)
         if self.score_type == "moments":
             self.moments = self.get_value("SCORING", "moments", "mean stdev").split()
             #options are : mean stdev skew kurtosis
