@@ -63,10 +63,13 @@ class ASETools():
                 new_cell = (1 + istep) * cell
                 tst_atoms.set_cell(new_cell,scale_atoms=True)
             tmpcut = optimal_bond_length + tol
-            while np.isnan(current_bond_length):
+            mx_itr = 20
+            itri=0
+            while np.isnan(current_bond_length) and itri < mx_itr:
                 new_ds = primitive_neighbor_list('d',pbc=tst_atoms.pbc,positions=tst_atoms.positions ,cell=tst_atoms.get_cell(),cutoff=tmpcut)
                 current_bond_length = current_bond_length = np.average(new_ds)
                 tmpcut += 0.1
+                itri +=1
             if verbose:
                 print ('istep',istep,current_bond_length, optimal_bond_length,tst_atoms.get_cell())
             #new_ds = primitive_neighbor_list('d',pbc=tst_atoms.pbc,positions=tst_atoms.positions ,cell=tst_atoms.get_cell(),cutoff=optimal_bond_length + tol)
@@ -298,9 +301,9 @@ class ASETools():
     ('monoclinic','sm'):{'a':4.0, 'b/a':1.2, 'c/a':1.3, 'alpha':70 },
     ('monoclinic','bcm'):{'a':4.0, 'b/a':1.2, 'c/a':1.3, 'alpha':70 },
     ('triclinic','t'):{'a':4.0, 'b/a':1.2, 'c/a':1.3, 'alpha':70., 'beta':40., 'gamma':100. },
-    ('hexagonal','h'):{'a':2.0,'c/a':1.5},
-    ('hexagonal','hcp'):{'a':2.0,'c/a':0.75},
-    ('hexagonal','hgr'): {'a':2.0,'c/a':1.5},
+    ('hexagonal','h'):{'a':2.8,'c/a':1.5},
+    ('hexagonal','hcp'):{'a':2.8,'c/a':1.5},
+    ('hexagonal','hgr'): {'a':2.8,'c/a':1.5},
     }
 
     valid_tups = [ ('cubic','sc'),
