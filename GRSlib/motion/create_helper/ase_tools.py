@@ -130,18 +130,35 @@ class ASETools():
     # quick function to get supercell from primitive cell for any system
     #TODO. Hermite Normal Form supercells in like Gus Hart has
     # would be the most comprehensive way to do this (would contain cubic and primitive multiples)
-    def get_any_supercell(atoms,min_natoms,max_natoms):
+    def get_any_supercell(atoms,min_natoms,max_natoms,num=1):
         natoms_in = len(atoms)
         rough_n3 = int(natoms_in**(1/3))
         tups_over = [p for p in itertools.product(range(1,rough_n3+4),range(1,rough_n3+4),range(1,rough_n3+4))]
         natoms_over = [natoms_in * p[0]*p[1]*p[2] for p in tups_over]
         tups = [tup for itup,tup in enumerate(tups_over) if natoms_over[itup] < max_natoms and natoms_over[itup] > min_natoms]
         natoms = [natoms_in * p[0]*p[1]*p[2] for p in tups]
-        random_sc_mult_i = np.random.choice(range(len(tups)))
-        random_sc_mult = tups[random_sc_mult_i]
-        scell = atoms*random_sc_mult
-        return scell
-        
+        sizes = sorted(list(set(natoms)))
+        if num ==1:
+            random_sc_mult_i = np.random.choice(range(len(tups)))
+            random_sc_mult = tups[random_sc_mult_i]
+            scell = atoms*random_sc_mult
+            return scell
+        else:
+            #random_sc_mult_i = np.random.choice(range(len(tups)),num,replace=False)
+            #random_sc_mults = [tups[random_sc_mult_ii] for random_sc_mult_ii in random_sc_mult_i]
+            #scells = [atoms*random_sc_mult for random_sc_mult in random_sc_mults]
+            grouped = {sz:[tup for tup in tups if (tup[0]*tup[1]*tup[2]*natoms_in) == sz] for sz in sizes}
+            this_size = np.random.choice(sizes)
+            try:
+                random_sc_mult_i=np.random.choice(range(len(grouped[this_size])),num,replace=False)
+                if len(random_sc_mult_i) != num:
+                    random_sc_mult_i=np.random.choice(range(len(grouped[this_size])),num)
+            except:
+                random_sc_mult_i=np.random.choice(range(len(grouped[this_size])),num)
+            random_sc_mults = [grouped[this_size][random_sc_mult_ii] for random_sc_mult_ii in random_sc_mult_i]
+            scells = [atoms*random_sc_mult for random_sc_mult in random_sc_mults]
+            print('obtained, target',len(scells),num)
+            return scells
     #TODO limit where this can be applied. I am not sure if it will work with hexagonal phases
     #   and others that Coreen has been working on implementing. As far as I see, it only works
     #   for cubic crystals.
