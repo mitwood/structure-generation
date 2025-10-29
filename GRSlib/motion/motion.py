@@ -243,8 +243,8 @@ class Optimize:
             if np.random.rand() < float(self.config.sections['GENETIC'].mutation_rate):
                 batch = self.genetic.mutation(atoms_winner) #Will mutation only take in one structure?- TODO enable mutate >1 structures
             else:
-                #batch = self.genetic.crossover(atoms_winner, atoms_runner_up) #Should have two structures
-                batch = self.genetic.crossover_ASE(atoms_winner, atoms_runner_up) #Should have two structures
+                batch = self.genetic.crossover(atoms_winner, atoms_runner_up) #Should have two structures
+                #batch = self.genetic.crossover_ASE(atoms_winner, atoms_runner_up) #crossover function from ASE
 
             for candidate in range(len(batch)):
                 file_name = self.config.sections['TARGET'].job_prefix+"_Cand%sGen%s.lammps-data"%(candidate,iteration)
