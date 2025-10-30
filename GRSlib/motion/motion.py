@@ -150,7 +150,7 @@ class Optimize:
                 used.append(s[1])
         return updated     
 
-    def unique_tournament_selection(self, data):
+    def unique_selection(self, data):
         #More of a super function that will call a bunch of the ones below
         #This should be the default since we dont want to send duplicates the crossover/mutation
         #ki=3 default
@@ -166,12 +166,13 @@ class Optimize:
             scores.append(['Init', candidate, file_name, self.scoring.get_score(lammps_data)])
 #            shutil.move(lammps_data, self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.data"%(candidate,0))
         for iteration in range(self.config.sections['GENETIC'].ngenerations):               
-#            selection = np.unique(scores[:2])#Cull candidates for uniqueness. 0: generation, 1: id, 2: file-name, 3: score
             population_in = scores.copy()
+            #iterate selection method (good place to sub in different selection methods in the future)
             selected_sets = [self.tournament_selection_N(population_in,k=ki,seed=None) for idx in range(len(starting_generation))]
+            #remove empty selections (TODO remove empty selection solution)
             selected_sets = [s for s in selected_sets if len(s) >=2]
-            #print('my tourny',selected)
             selected= [item for sublist in selected_sets for item in sublist]
+            #filter for uniqueness (no repeats of candidates from population in selection)
             selected = self.filter_unique(selected)
             """
             selection = scores.copy() 
@@ -192,15 +193,16 @@ class Optimize:
             #     especially if having trouble finding the right solution. adding some randomness helps avoid 
             #     convergence to local minimum.
             #     we could also try (winner + random) , (winner + random_top_10_percent) , (random + random)
+            """
             if selected[0][3] <= selected[1][3]:
                 old_winner = selected[0]
                 old_runner_up = selected[1]
             else:
                 old_winner = selected[1]
                 old_runner_up = selected[0]
-
-            print("Iteration:",iteration, "old Winner:",old_winner, "old Second:",old_runner_up)
-            print("Iteration:",iteration, "new Winner:",winner, "new Second:",runner_up)
+            """
+            #print("Iteration:",iteration, "old Winner:",old_winner, "old Second:",old_runner_up)
+            print("Iteration:",iteration, "Winner:",winner, "Second:",runner_up)
             with open("scoring_%s.txt"%self.config.sections['TARGET'].job_prefix, "a") as f:
                 print(iteration, winner, runner_up, file=f)
 
@@ -243,8 +245,8 @@ class Optimize:
             if np.random.rand() < float(self.config.sections['GENETIC'].mutation_rate):
                 batch = self.genetic.mutation(atoms_winner) #Will mutation only take in one structure?- TODO enable mutate >1 structures
             else:
-                batch = self.genetic.crossover(atoms_winner, atoms_runner_up) #Should have two structures
-                #batch = self.genetic.crossover_ASE(atoms_winner, atoms_runner_up) #crossover function from ASE
+                #batch = self.genetic.crossover(atoms_winner, atoms_runner_up) #Should have two structures
+                batch = self.genetic.crossover_ASE(atoms_winner, atoms_runner_up) #crossover function from ASE
 
             for candidate in range(len(batch)):
                 file_name = self.config.sections['TARGET'].job_prefix+"_Cand%sGen%s.lammps-data"%(candidate,iteration)
