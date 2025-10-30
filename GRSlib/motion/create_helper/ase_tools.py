@@ -299,7 +299,8 @@ class ASETools():
     ('hexagonal','h'),
     ('hexagonal','hcp')
     ]
-
+    
+    bravais_phases = {valid_tup[1]:valid_tup for valid_tup in valid_tups}
 
     elem_list = [
     'C','Si',
