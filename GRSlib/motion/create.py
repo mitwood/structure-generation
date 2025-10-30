@@ -101,7 +101,26 @@ class Create:
 #        print("Starting population using provided lattice type")
         population = []
         return population
-    
+
+    def from_phases(self,*args): # similar to template but start from a known lattice
+        population = []
+        references_to_try = self.config.sections["GENETIC"].reference_phases #= ['hpc','fcc','bcc']
+        for reference in references_to_try:
+            tup = ASETools.bravais_phases[reference]
+            builder_function = ASETools.lattice_func(tup)
+            temp_lattice_param = ASETools.lattice_params_schema[tup]
+            print(temp_lattice_param)
+            num_candidates=10
+            #number per reference adds up to population size
+
+            trial_struct = builder_function(size=(1,1,1), symbol='W', pbc=(1,1,1), latticeconstant=ASETools.lattice_params_schema[tup])
+            for cand in range(num_candidates):
+                supercell = ASETools.get_cube_supercell(trial_struct, self.config.sections["GENETIC"].min_atoms,
+                                self.config.sections["GENETIC"].max_atoms) # supercell should be in the set of reference_phases.
+                supercell.rattle(stdev=.2, seed=42)
+                population.append(supercell)
+        return population
+
     def from_random(self,*args):
         #More of a super function that will call a bunch of the ones below
         #print("Starting population of random low energy structures of provided elements")
@@ -121,4 +140,5 @@ class Create:
                                                         self.config.sections["GENETIC"].max_atoms, self.config.sections["BASIS"].elements[item])
                 population.append(new_candidate)
         return population
+
 
