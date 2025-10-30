@@ -197,6 +197,9 @@ class Optimize:
             if selected[0][3] <= selected[1][3]:
                 old_winner = selected[0]
                 old_runner_up = selected[1]
+            if selection[0][3] <= selection[1][3]:
+                winner = selection[0]
+                runner_up = selection[1]
             else:
                 old_winner = selected[1]
                 old_runner_up = selected[0]

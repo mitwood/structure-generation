@@ -157,7 +157,6 @@ class ASETools():
                 random_sc_mult_i=np.random.choice(range(len(grouped[this_size])),num)
             random_sc_mults = [grouped[this_size][random_sc_mult_ii] for random_sc_mult_ii in random_sc_mult_i]
             scells = [atoms*random_sc_mult for random_sc_mult in random_sc_mults]
-            print('obtained, target',len(scells),num)
             return scells
     #TODO limit where this can be applied. I am not sure if it will work with hexagonal phases
     #   and others that Coreen has been working on implementing. As far as I see, it only works
