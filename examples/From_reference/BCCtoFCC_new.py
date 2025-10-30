@@ -55,7 +55,7 @@ settings = \
     "population_size": 10,
     "ngenerations": 15,
     "max_atoms": 50,
-    "reference_phases": "bcc",
+    "reference_phases": "bcc sc",
     "min_atoms": 10,
     "max_length_aspect": 2.0,
     "max_angle_aspect": 2.0,
