@@ -14,7 +14,6 @@ import numpy as np
 
 class Scoring:
 
-#    def __init__(self, pt, config, data, loss_ff, **kwargs):
     def __init__(self, pt, config, loss_func, descriptors):
         self.pt = pt #ParallelTools()
         self.config = config #Config()
@@ -45,6 +44,7 @@ class Scoring:
         neigh_modify one 10000
         thermo 10
         thermo_style custom step etotal temp press
+        thermo_modify norm yes
         """
         init_lmp=construct_string.format(self.data, self.config.sections["GRADIENT"].soft_strength, (" ".join(str(x) for x in self.config.sections['BASIS'].elements)))
         #TODO make the possibility to import any reference potential to be used with the mliap one
