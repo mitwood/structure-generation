@@ -32,6 +32,7 @@ class Scoring:
 #        self.lmp = lammps(cmdargs = cmds)
         self.lmp = self.pt.initialize_lammps('log.lammps',0)
         lammps.mliap.activate_mliappy(self.lmp)
+        #NOTE thermo modify norm yes to make score magnitude (and soft contribution) independent of system size
         construct_string=\
         """
         units metal

@@ -24,54 +24,66 @@ class ASETools():
     def GraphiteFactory():
         bravais_basis=[[0, 0, 0], [0.5, 0.5, 0.5]]
 
-    def optimal_bond_to_latparam(optimal_bond_length,atoms,lattice_params,tol=0.15):
+    def optimal_bond_to_latparam(optimal_bond_length,atoms,lattice_params,tol=0.05):
         verbose = False
-        #ideal reference would be fcc Cu while finding optimal starting lattice parameters for simple cubic Cu
         tst_atoms = atoms.copy()
-        natural_cutoff = max([ optimal_bond_length, np.average(natural_cutoffs(atoms))])
-        atinds = [atom.index for atom in atoms]
-        at_dists = {i:[] for i in atinds}
-        all_dists = []
-        nl = primitive_neighbor_list('ijdD',pbc=tst_atoms.pbc,positions=tst_atoms.positions ,cell=tst_atoms.get_cell(),cutoff=natural_cutoff)
-        for i,j in zip(nl[0],nl[-1]):
-            at_dists[i].append(j)
-            all_dists.append(j)
-        if len(all_dists) == 0:
-            current_bond_length = 1.2 * optimal_bond_length
-        else:
-            current_bond_length = np.average(all_dists)
-        while current_bond_length > optimal_bond_length + tol:
-            if current_bond_length > optimal_bond_length + tol:
+        fac = 1.1
+        cut = (optimal_bond_length + tol)
+        dists = primitive_neighbor_list('d',pbc=tst_atoms.pbc,positions=tst_atoms.positions ,cell=tst_atoms.get_cell(),cutoff=cut)
+        maxiter =2
+        itri=0
+        while len(dists) == 0 and itri < maxiter:
+            cut *=fac
+            dists = primitive_neighbor_list('d',pbc=tst_atoms.pbc,positions=tst_atoms.positions ,cell=tst_atoms.get_cell(),cutoff=cut)
+            itri+=1
+            #print('num dists',cut,len(dists))
+        current_bond_length = np.average(dists)
+        #print(current_bond_length,optimal_bond_length)
+        while current_bond_length > optimal_bond_length + tol or current_bond_length < optimal_bond_length - tol:
+            new_ds = primitive_neighbor_list('d',pbc=tst_atoms.pbc,positions=tst_atoms.positions ,cell=tst_atoms.get_cell(),cutoff=optimal_bond_length + tol)
+            current_bond_length = np.average(new_ds) #TODO nan to num this for 0 length new_ds array?
+            if current_bond_length > optimal_bond_length:
                 cell = tst_atoms.get_cell()
                 cell_vec_sizes = [np.linalg.norm(v) for v in cell]
                 mx = max(cell_vec_sizes)
                 mx_ind = cell_vec_sizes.index(mx)
                 isize = cell_vec_sizes[mx_ind]
                 iratio = optimal_bond_length/isize
-                istep = (  iratio * 0.2 ) #1/5 th of the size
+                istep = 0.002 #(  iratio * 0.1 ) #1/5 th of the size
                 assert istep < 1., "check your step size %f" % istep
                 new_cell = (1 - istep) * cell
-                tst_atoms.set_cell(new_cell)
-            elif current_bond_length < optimal_bond_length - tol:
+                tst_atoms.set_cell(new_cell,scale_atoms=True)
+            #elif current_bond_length < optimal_bond_length :
+            else:
                 cell = tst_atoms.get_cell()
                 cell_vec_sizes = [np.linalg.norm(v) for v in cell]
                 mx = max(cell_vec_sizes)
                 mx_ind = cell_vec_sizes.index(mx)
                 isize = cell_vec_sizes[mx_ind]
                 iratio = optimal_bond_length/isize
-                istep = (  iratio * 0.2 ) #1/5 th of the size
+                istep = 0.002 #(  iratio * 0.1 ) #1/5 th of the size
                 assert istep < 1., "check your step size %f" % istep
                 new_cell = (1 + istep) * cell
-                tst_atoms.set_cell(new_cell)
+                tst_atoms.set_cell(new_cell,scale_atoms=True)
+            tmpcut = optimal_bond_length + tol
+            #if np.isnan(current_bond_length) or current_bond_length==0:
+            #    new_ds = primitive_neighbor_list('d',pbc=tst_atoms.pbc,positions=tst_atoms.positions ,cell=tst_atoms.get_cell(),cutoff=tmpcut*1.6)
+            #    current_bond_length = np.average(new_ds)
+            #    print('updated nan bond length',current_bond_length)
+            #mx_itr = 2
+            #itri=0
+            #while np.isnan(current_bond_length) and itri < mx_itr:
+            #    new_ds = primitive_neighbor_list('d',pbc=tst_atoms.pbc,positions=tst_atoms.positions ,cell=tst_atoms.get_cell(),cutoff=tmpcut)
+            #    current_bond_length = np.average(new_ds)
+            #    tmpcut += 0.1
+            #    itri +=1
             if verbose:
                 print ('istep',istep,current_bond_length, optimal_bond_length,tst_atoms.get_cell())
-            nl = primitive_neighbor_list('ijdD',pbc=tst_atoms.pbc,positions=tst_atoms.positions ,cell=tst_atoms.get_cell(),cutoff=natural_cutoff)
-            if len(nl[-1]) == 0:
-                current_bond_length = optimal_bond_length * 1.2
-            else:
-                current_bond_length = np.average(nl[-1])
+            new_ds = primitive_neighbor_list('d',pbc=tst_atoms.pbc,positions=tst_atoms.positions ,cell=tst_atoms.get_cell(),cutoff=optimal_bond_length + tol)
+            current_bond_length = np.average(new_ds)
         
         return tst_atoms
+
 
     def get_cell_type(atoms,parent_only = False):
         cell = atoms.get_cell()
@@ -121,7 +133,41 @@ class ASETools():
         new_prim.set_scaled_positions(scaled_positions)
         new_prim.set_pbc(True)
         return new_prim
-    
+
+    # quick function to get supercell from primitive cell for any system
+    #TODO. Hermite Normal Form supercells in like Gus Hart has
+    # would be the most comprehensive way to do this (would contain cubic and primitive multiples)
+    def get_any_supercell(atoms,min_natoms,max_natoms,num=1):
+        natoms_in = len(atoms)
+        rough_n3 = int(natoms_in**(1/3))
+        tups_over = [p for p in itertools.product(range(1,rough_n3+4),range(1,rough_n3+4),range(1,rough_n3+4))]
+        natoms_over = [natoms_in * p[0]*p[1]*p[2] for p in tups_over]
+        tups = [tup for itup,tup in enumerate(tups_over) if natoms_over[itup] < max_natoms and natoms_over[itup] > min_natoms]
+        natoms = [natoms_in * p[0]*p[1]*p[2] for p in tups]
+        sizes = sorted(list(set(natoms)))
+        if num ==1:
+            random_sc_mult_i = np.random.choice(range(len(tups)))
+            random_sc_mult = tups[random_sc_mult_i]
+            scell = atoms*random_sc_mult
+            return scell
+        else:
+            #random_sc_mult_i = np.random.choice(range(len(tups)),num,replace=False)
+            #random_sc_mults = [tups[random_sc_mult_ii] for random_sc_mult_ii in random_sc_mult_i]
+            #scells = [atoms*random_sc_mult for random_sc_mult in random_sc_mults]
+            grouped = {sz:[tup for tup in tups if (tup[0]*tup[1]*tup[2]*natoms_in) == sz] for sz in sizes}
+            this_size = np.random.choice(sizes)
+            try:
+                random_sc_mult_i=np.random.choice(range(len(grouped[this_size])),num,replace=False)
+                if len(random_sc_mult_i) != num:
+                    random_sc_mult_i=np.random.choice(range(len(grouped[this_size])),num)
+            except:
+                random_sc_mult_i=np.random.choice(range(len(grouped[this_size])),num)
+            random_sc_mults = [grouped[this_size][random_sc_mult_ii] for random_sc_mult_ii in random_sc_mult_i]
+            scells = [atoms*random_sc_mult for random_sc_mult in random_sc_mults]
+            return scells
+    #TODO limit where this can be applied. I am not sure if it will work with hexagonal phases
+    #   and others that Coreen has been working on implementing. As far as I see, it only works
+    #   for cubic crystals.
     def get_cube_supercell(atoms, min_natoms, max_natoms):
         cell = atoms.get_cell()
         scpos = atoms.get_scaled_positions()
@@ -209,7 +255,7 @@ class ASETools():
         for elem in elem_list:
             atis = bulk(elem)
             suggested_bond_len = 2*np.average(natural_cutoffs(atis))
-            print (elem,get_cell_type(atis),suggested_bond_len)
+            #print (elem,get_cell_type(atis),suggested_bond_len)
             for tup in valid_tups:
                 this_func = lattice_func(tup)
                 atoms =this_func(size=(1,1,1), symbol=elem, pbc=(1,1,1), latticeconstant=lattice_params_schema[tup])
@@ -278,9 +324,9 @@ class ASETools():
     ('monoclinic','sm'):{'a':4.0, 'b/a':1.2, 'c/a':1.3, 'alpha':70 },
     ('monoclinic','bcm'):{'a':4.0, 'b/a':1.2, 'c/a':1.3, 'alpha':70 },
     ('triclinic','t'):{'a':4.0, 'b/a':1.2, 'c/a':1.3, 'alpha':70., 'beta':40., 'gamma':100. },
-    ('hexagonal','h'):{'a':2.0,'c/a':1.5},
-    ('hexagonal','hcp'):{'a':2.0,'c/a':0.75},
-    ('hexagonal','hgr'): {'a':2.0,'c/a':1.5},
+    ('hexagonal','h'):{'a':2.8,'c/a':1.5},
+    ('hexagonal','hcp'):{'a':2.8,'c/a':1.5},
+    ('hexagonal','hgr'): {'a':2.8,'c/a':1.5},
     }
 
     valid_tups = [ ('cubic','sc'),

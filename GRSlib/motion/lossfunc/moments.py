@@ -16,6 +16,8 @@ class Moments(Scoring):
         self.loss_ff_grad = grad(self.construct_loss)
         self.grad_loss = grad(self.construct_loss)
         self.mode = "update"
+        self.divide_by_numdesc = self.config.sections['SCORING'].norm_by_numdesc #Flag to normalize by # of descriptors
+        #TODO flag to normalize descriptors themselves
 
     def __call__(self, *args):
         #The arguments that this function brings in are super improtant and are expected by LAMMPS MLIAP package.
@@ -123,9 +125,13 @@ class Moments(Scoring):
         current_avg = jnp.average(current_desc, axis=0)*self.mask
         target_avg = jnp.average(target_desc, axis=0)*self.mask
         tst_residual = jnp.sum(jnp.nan_to_num(jnp.abs(current_avg-target_avg)))
+        tst_residual_av = jnp.average(jnp.nan_to_num(jnp.abs(current_avg-target_avg)))
         is_zero = jnp.array(jnp.isclose(tst_residual,jnp.zeros(tst_residual.shape)),dtype=int)
         bonus = -jnp.sum(is_zero*(float(self.config.sections['SCORING'].moments_bonus[0])))
-        tst_residual_final = tst_residual*float(self.config.sections['SCORING'].moments_coeff[0]) + bonus #MAE + bonus
+        if self.divide_by_numdesc:
+            tst_residual_final = tst_residual_av*float(self.config.sections['SCORING'].moments_coeff[0]) + bonus #MAE + bonus
+        else:
+            tst_residual_final = tst_residual*float(self.config.sections['SCORING'].moments_coeff[0]) + bonus #MAE + bonus
         return tst_residual_final
 
     @partial(jit, static_argnums=(0,))
@@ -133,9 +139,13 @@ class Moments(Scoring):
         current_std = jnp.std(current_desc, axis=0)*self.mask
         target_std = jnp.std(target_desc, axis=0)*self.mask
         tst_residual = jnp.sum(jnp.nan_to_num(jnp.abs(current_std-target_std)))
+        tst_residual_av = jnp.average(jnp.nan_to_num(jnp.abs(current_std-target_std)))
         is_zero = jnp.array(jnp.isclose(tst_residual,jnp.zeros(tst_residual.shape)),dtype=int)
         bonus = -jnp.sum(is_zero*float(self.config.sections['SCORING'].moments_bonus[1]))
-        tst_residual_final = tst_residual*float(self.config.sections['SCORING'].moments_coeff[1]) + bonus #MAE + bonus
+        if self.divide_by_numdesc:
+            tst_residual_final = tst_residual_av*float(self.config.sections['SCORING'].moments_coeff[1]) + bonus #MAE + bonus
+        else:
+            tst_residual_final = tst_residual*float(self.config.sections['SCORING'].moments_coeff[1]) + bonus #MAE + bonus
         return tst_residual_final
 
     @partial(jit, static_argnums=(0,))
@@ -152,9 +162,13 @@ class Moments(Scoring):
         target_skew = 3.0*(target_avg-target_med)/target_std
 
         tst_residual = jnp.sum(jnp.nan_to_num(jnp.abs(current_skew-target_skew)))
+        tst_residual_av = jnp.average(jnp.nan_to_num(jnp.abs(current_skew-target_skew)))
         is_zero = jnp.array(jnp.isclose(tst_residual,jnp.zeros(tst_residual.shape)),dtype=int)
         bonus = -jnp.sum(is_zero*float(self.config.sections['SCORING'].moments_bonus[2]))
-        tst_residual_final = tst_residual*float(self.config.sections['SCORING'].moments_coeff[2]) + bonus #MAE + bonus
+        if self.divide_by_numdesc:
+            tst_residual_final = tst_residual_av*float(self.config.sections['SCORING'].moments_coeff[2]) + bonus #MAE + bonus
+        else:
+            tst_residual_final = tst_residual*float(self.config.sections['SCORING'].moments_coeff[2]) + bonus #MAE + bonus
         return tst_residual_final
 
     @partial(jit, static_argnums=(0,))
@@ -169,7 +183,11 @@ class Moments(Scoring):
         target_kurt = jnp.average(((target_desc-target_avg)/target_std)**4.0)-3.0 
 
         tst_residual = jnp.sum(jnp.nan_to_num(jnp.abs(current_kurt-target_kurt)))
+        tst_residual_av = jnp.average(jnp.nan_to_num(jnp.abs(current_kurt-target_kurt)))
         is_zero = jnp.array(jnp.isclose(tst_residual,jnp.zeros(tst_residual.shape)),dtype=int)
         bonus = -jnp.sum(is_zero*float(self.config.sections['SCORING'].moments_bonus[3]))
-        tst_residual_final = tst_residual*float(self.config.sections['SCORING'].moments_coeff[3]) + bonus #MAE + bonus
+        if self.divide_by_numdesc:
+            tst_residual_final = tst_residual_av*float(self.config.sections['SCORING'].moments_coeff[3]) + bonus #MAE + bonus
+        else:
+            tst_residual_final = tst_residual*float(self.config.sections['SCORING'].moments_coeff[3]) + bonus #MAE + bonus
         return tst_residual_final
