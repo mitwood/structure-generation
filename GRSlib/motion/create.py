@@ -110,7 +110,7 @@ class Create:
         return population
 
     def from_phases(self,*args): # similar to template but start from a known lattice
-        verbose = True
+        verbose = False
         #value to compress/expand cells by (see TODO below)
         compex = 0.0
         population = []
