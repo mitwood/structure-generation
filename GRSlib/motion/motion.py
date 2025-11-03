@@ -248,8 +248,8 @@ class Optimize:
             if np.random.rand() < float(self.config.sections['GENETIC'].mutation_rate):
                 batch = self.genetic.mutation(atoms_winner) #Will mutation only take in one structure?- TODO enable mutate >1 structures
             else:
-                #batch = self.genetic.crossover(atoms_winner, atoms_runner_up) #Should have two structures
-                batch = self.genetic.crossover_ASE(atoms_winner, atoms_runner_up) #crossover function from ASE
+                batch = self.genetic.crossover(atoms_winner, atoms_runner_up) #Should have two structures
+                #batch = self.genetic.crossover_ASE(atoms_winner, atoms_runner_up) #crossover function from ASE
 
             for candidate in range(len(batch)):
                 file_name = self.config.sections['TARGET'].job_prefix+"_Cand%sGen%s.lammps-data"%(candidate,iteration)
@@ -261,6 +261,7 @@ class Optimize:
                 #scores.append([iteration, candidate, file_name, self.scoring.get_score(lammps_data)])
                 score_win = self.scoring.get_score(self.convert.ase_to_lammps(atoms_winner,file_name +'-win'))
                 score_conv = self.scoring.get_score(lammps_data)
+                print('score comp', candidate, len(batch), score_conv, score_win)
                 #TODO help james understand why the 'winner' score not the lowest candidate score in line below
                 #   winner is now lowest score
                 #print('score comp', candidate, len(batch), score_conv, score_win)

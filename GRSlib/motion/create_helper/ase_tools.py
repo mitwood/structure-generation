@@ -25,14 +25,17 @@ class ASETools():
         bravais_basis=[[0, 0, 0], [0.5, 0.5, 0.5]]
 
     def optimal_bond_to_latparam(optimal_bond_length,atoms,lattice_params,tol=0.05):
-        verbose = False
+        verbose = True
         tst_atoms = atoms.copy()
         fac = 1.1
         cut = (optimal_bond_length + tol)
         dists = primitive_neighbor_list('d',pbc=tst_atoms.pbc,positions=tst_atoms.positions ,cell=tst_atoms.get_cell(),cutoff=cut)
-        while len(dists) == 0:
+        maxiter =2
+        itri=0
+        while len(dists) == 0 and itri < maxiter:
             cut *=fac
             dists = primitive_neighbor_list('d',pbc=tst_atoms.pbc,positions=tst_atoms.positions ,cell=tst_atoms.get_cell(),cutoff=cut)
+            itri+=1
             #print('num dists',cut,len(dists))
         current_bond_length = np.average(dists)
         #print(current_bond_length,optimal_bond_length)
@@ -63,17 +66,21 @@ class ASETools():
                 new_cell = (1 + istep) * cell
                 tst_atoms.set_cell(new_cell,scale_atoms=True)
             tmpcut = optimal_bond_length + tol
-            mx_itr = 20
-            itri=0
-            while np.isnan(current_bond_length) and itri < mx_itr:
-                new_ds = primitive_neighbor_list('d',pbc=tst_atoms.pbc,positions=tst_atoms.positions ,cell=tst_atoms.get_cell(),cutoff=tmpcut)
-                current_bond_length = current_bond_length = np.average(new_ds)
-                tmpcut += 0.1
-                itri +=1
+            #if np.isnan(current_bond_length) or current_bond_length==0:
+            #    new_ds = primitive_neighbor_list('d',pbc=tst_atoms.pbc,positions=tst_atoms.positions ,cell=tst_atoms.get_cell(),cutoff=tmpcut*1.6)
+            #    current_bond_length = np.average(new_ds)
+            #    print('updated nan bond length',current_bond_length)
+            #mx_itr = 2
+            #itri=0
+            #while np.isnan(current_bond_length) and itri < mx_itr:
+            #    new_ds = primitive_neighbor_list('d',pbc=tst_atoms.pbc,positions=tst_atoms.positions ,cell=tst_atoms.get_cell(),cutoff=tmpcut)
+            #    current_bond_length = np.average(new_ds)
+            #    tmpcut += 0.1
+            #    itri +=1
             if verbose:
                 print ('istep',istep,current_bond_length, optimal_bond_length,tst_atoms.get_cell())
-            #new_ds = primitive_neighbor_list('d',pbc=tst_atoms.pbc,positions=tst_atoms.positions ,cell=tst_atoms.get_cell(),cutoff=optimal_bond_length + tol)
-            #current_bond_length = np.average(new_ds)
+            new_ds = primitive_neighbor_list('d',pbc=tst_atoms.pbc,positions=tst_atoms.positions ,cell=tst_atoms.get_cell(),cutoff=optimal_bond_length + tol)
+            current_bond_length = np.average(new_ds)
         
         return tst_atoms
 

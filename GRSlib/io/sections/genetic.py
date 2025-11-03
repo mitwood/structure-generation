@@ -19,7 +19,6 @@ class Genetic(Section):
         self.ngenerations = self.get_value("GENETIC", "ngenerations", 10, interpreter="int")
         self.max_atoms = self.get_value("GENETIC", "max_atoms", 100, interpreter="int")
         self.min_atoms = self.get_value("GENETIC", "min_atoms", 10, interpreter="int")
-        self.reference_phases = self.get_value("GENETIC","reference_phases", "bcc").split()
         self.max_length_aspect = self.get_value("GENETIC", "max_length_aspec", 3.0, interpreter="float")
         self.max_angle_aspect = self.get_value("GENETIC", "max_angle_aspec", 3.0, interpreter="float")
         self.density_ratio = self.get_value("GENETIC", "density_ratio", 1.3, interpreter="float") #This will allow for 30% changes in either direction of density
