@@ -126,7 +126,9 @@ class Create:
             builder_function = ASETools.lattice_func(tup)
             temp_lattice_param = ASETools.lattice_params_schema[tup]
             #get recommended bond length from ground state as tabulated by ASE
-            atis = bulk(ele[0])
+            #TODO other random choice method for element? Forced to be modeled after element 0?
+            choice_ele =np.random.choice(ele)
+            atis = bulk(choice_ele)
             test_bond_len = np.average(natural_cutoffs(atis)) *2
             #suggested_bond_len = np.average(primitive_neighbor_list('d',pbc=atis.pbc,positions=atis.positions ,cell=atis.get_cell(),cutoff=np.average(natural_cutoffs(atis))))
             suggested_bond_len = np.average(primitive_neighbor_list('d',pbc=atis.pbc,positions=atis.positions ,cell=atis.get_cell(),cutoff=test_bond_len))
@@ -142,7 +144,7 @@ class Create:
 
             
             #TODO update from ele[0] for multi-element solutions
-            trial_struct = builder_function(size=(1,1,1), symbol=ele[0], pbc=(1,1,1), latticeconstant=ASETools.lattice_params_schema[tup])
+            trial_struct = builder_function(size=(1,1,1), symbol=choice_ele, pbc=(1,1,1), latticeconstant=ASETools.lattice_params_schema[tup])
             #update trial_struct default lattice parameter to scale based on suggested bond length
             initial = ASETools.optimal_bond_to_latparam(optimal_bond_length=suggested_bond_len,atoms=trial_struct,lattice_params=None,tol=0.005)
             # use primitive supercell function to work for non-cubic bravais lattices
