@@ -2,6 +2,8 @@
 from GRSlib.motion.create_helper.ase_tools import ASETools
 from ase import Atoms,Atom
 from ase.build import bulk
+from ase.io import read,write
+from ase.neighborlist import natural_cutoffs,primitive_neighbor_list
 import numpy as np
 import random
 
@@ -106,7 +108,68 @@ class Create:
 #        print("Starting population using provided lattice type")
         population = []
         return population
-    
+
+    def from_phases(self,*args): # similar to template but start from a known lattice
+        verbose = False
+        #value to compress/expand cells by (see TODO below)
+        compex = 0.0
+        population = []
+        references_to_try = self.config.sections["GENETIC"].reference_phases #= ['hpc','fcc','bcc']
+        pop_size = self.config.sections["GENETIC"].population_size
+        fracs_per_ref = self.config.sections["GENETIC"].frac_pop_per_ref
+        mn = self.config.sections["GENETIC"].min_atoms
+        mx = self.config.sections["GENETIC"].max_atoms
+        ele = self.config.sections["BASIS"].elements
+        num_per_ref = [int(round(fracs_per_ref[iref]*pop_size,1)) for iref in range(len(references_to_try))]
+        breakdown_num = np.sum(num_per_ref)
+        # add in remainder if num per ref doesnt add up to population size
+        if breakdown_num < pop_size:
+            diff = pop_size - breakdown_num
+            num_per_ref[0] += diff
+        for iref,reference in enumerate(references_to_try):
+            tup = ASETools.bravais_phases[reference]
+            builder_function = ASETools.lattice_func(tup)
+            temp_lattice_param = ASETools.lattice_params_schema[tup]
+            #get recommended bond length from ground state as tabulated by ASE
+            #TODO other random choice method for element? Forced to be modeled after element 0?
+            choice_ele =np.random.choice(ele)
+            atis = bulk(choice_ele)
+            test_bond_len = np.average(natural_cutoffs(atis)) *2
+            #suggested_bond_len = np.average(primitive_neighbor_list('d',pbc=atis.pbc,positions=atis.positions ,cell=atis.get_cell(),cutoff=np.average(natural_cutoffs(atis))))
+            suggested_bond_len = np.average(primitive_neighbor_list('d',pbc=atis.pbc,positions=atis.positions ,cell=atis.get_cell(),cutoff=test_bond_len))
+            # if no bonds detected, grow neightbor list
+            mx_itr = 2
+            itri=0
+            test_bond_len = np.average(natural_cutoffs(atis))
+            while np.isnan(suggested_bond_len) or suggested_bond_len ==0:
+                test_bond_len += 0.2
+                suggested_bond_len = np.average(primitive_neighbor_list('d',pbc=atis.pbc,positions=atis.positions ,cell=atis.get_cell(),cutoff=test_bond_len))
+                if verbose:
+                    print('bond length from phases',test_bond_len,suggested_bond_len)
+
+            
+            #TODO update from ele[0] for multi-element solutions
+            trial_struct = builder_function(size=(1,1,1), symbol=choice_ele, pbc=(1,1,1), latticeconstant=ASETools.lattice_params_schema[tup])
+            #update trial_struct default lattice parameter to scale based on suggested bond length
+            initial = ASETools.optimal_bond_to_latparam(optimal_bond_length=suggested_bond_len,atoms=trial_struct,lattice_params=None,tol=0.005)
+            # use primitive supercell function to work for non-cubic bravais lattices
+            supercells = ASETools.get_any_supercell(initial, mn, mx, num = num_per_ref[iref])
+            if verbose:
+                for ii,supercell in enumerate(supercells):
+                    supercell_b=supercell.copy()
+                    write('un_pert_sc_%d_%s.cif' % (ii,reference),supercell_b)
+            for ii,supercell in enumerate(supercells):
+                supercell_c = supercell.copy()
+                #TODO adapt compress/expand based on density ratio in config
+                supercell.cell *= np.eye(3) * (1+np.random.uniform(-compex,compex))
+                supercell_c.rattle(stdev=self.config.sections["GENETIC"].dev_per_ref[iref],seed=np.random.randint(3000000))#TODO update seed making)
+                #if verbose, write structures to cif file (for visualizing)
+                if verbose:
+                    write('sc_%d_%s.cif' % (ii,reference),supercell_c)
+                population.append(supercell_c)
+
+        return population
+
     def from_random(self,*args):
         #More of a super function that will call a bunch of the ones below
 #        print("Starting population of random low energy structures of provided elements")
@@ -126,4 +189,5 @@ class Create:
                                                         self.config.sections["GENETIC"].max_atoms, self.config.sections["BASIS"].elements[item])
                 population.append(new_candidate)
         return population
+
 
