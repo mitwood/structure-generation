@@ -25,7 +25,7 @@ class ASETools():
         bravais_basis=[[0, 0, 0], [0.5, 0.5, 0.5]]
 
     def optimal_bond_to_latparam(optimal_bond_length,atoms,lattice_params,tol=0.05):
-        verbose = True
+        verbose = False
         tst_atoms = atoms.copy()
         fac = 1.1
         cut = (optimal_bond_length + tol)
