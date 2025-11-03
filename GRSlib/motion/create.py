@@ -92,13 +92,13 @@ class Create:
 #        print("Starting population using provided template")
         population = []
         duplicate = self.convert.lammps_to_ase(args[0][0])
-        for remaining in range(self.config.sections["GENETIC"].population_size):
-            new_candidate = ASETools.get_random_pos(duplicate, self.config.sections["GENETIC"].min_atoms,
-                                                    self.config.sections["GENETIC"].max_atoms, self.config.sections["BASIS"].elements[0])
-            population.append(new_candidate)
+        for candidate in range(self.config.sections["GENETIC"].population_size):
+            population.append(duplicate)
+#        for remaining in range(self.config.sections["GENETIC"].population_size-int(self.config.sections["GENETIC"].population_size/2)):
+#            new_candidate = ASETools.get_random_pos(duplicate, self.config.sections["GENETIC"].min_atoms,
+#                                                    self.config.sections["GENETIC"].max_atoms, self.config.sections["BASIS"].elements[0])
+#            population.append(new_candidate)
 
-#        for candidate in range(self.config.sections["GENETIC"].population_size):
-#            population.append(duplicate)
         return population
     
     def from_lattice(self,*args):
@@ -109,7 +109,7 @@ class Create:
     
     def from_random(self,*args):
         #More of a super function that will call a bunch of the ones below
-        #print("Starting population of random low energy structures of provided elements")
+#        print("Starting population of random low energy structures of provided elements")
         population = []
         # From types, find cell
         num_ele = len(self.config.sections["BASIS"].elements)
