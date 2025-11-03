@@ -8,7 +8,7 @@ class Scoring(Section):
         super().__init__(name, config, pt, infile,args)
         self.allowedkeys = ['score_type','moments', 'moments_coeff', 'moments_bonus', 'strength_target',
                             'strength_prior','exact_distribution','internal_entropy','ensemble_entropy',
-                            'norm_by_numdesc']
+                            'norm_by_numdesc','smartmask']
         self._check_section()
         self.score_type = self.get_value("SCORING", "score_type", None)
         self.strength_target = self.get_value("SCORING", "strength_target", 1.0, interpreter="float")
@@ -22,6 +22,9 @@ class Scoring(Section):
             #Requires one number per moment
             self.moments_bonus = self.get_value("SCORING", "moments_bonus", "0.0 0.0").split()
             #Score reduction if exact moment value is matched
+            self.smartmask = self.get_value("SCORING", "smartmask", 0, interpreter="int")
+            #Use a subset of descriptors of given count
+
         elif self.score_type == "entropy":
             self.internal_entropy = self.get_value("SCORING", "internal_entropy", 1.0)
             # Strength of interactions within a single structure. 
