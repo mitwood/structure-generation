@@ -21,6 +21,15 @@ class Gradient:
         self.config = config #Config()
         self.scoring = scoring
 
+    def none_min(self,data):
+        #Will construct a set of additional commands to send to LAMMPS before scoring
+        add_cmds=\
+        """run 0
+        write_data %s_last.data""" % (self.config.sections['TARGET'].job_prefix)
+        before_score, after_score = self.scoring.add_cmds_before_score(add_cmds,data)
+        end_data = self.config.sections['TARGET'].job_prefix + "_last.data"
+        return before_score, after_score, end_data
+    
     def fire_min(self,data,tole=0.0,tolf=0.0):
         #Will construct a set of additional commands to send to LAMMPS before scoring
         add_cmds=\
@@ -122,7 +131,10 @@ class Optimize:
             return population[0],population[1]
         else:
             second = np.random.randint(1,random_x_second-1)
-            return population[0],population[second]
+            try:
+                return population[0],population[second]
+            except IndexError:
+                return population[0],population[0]
         
         #print(selection[mp_inds[0]],selection[mp_inds[1]])
     
@@ -136,7 +148,8 @@ class Optimize:
         selection_ix = np.random.choice(range(0,len(population)),k-1,replace=False)
         not_ix = [j for j in range(0,len(population)) if j not in selection_ix]
         selection_jx = np.random.choice(not_ix,k-1,replace=False)
-        mask_ix = scores_a[selection_jx] < scores_a[selection_ix]
+        mask_ix = scores_a[selection_jx] <= scores_a[selection_ix]
+        #mask_ix = scores_a[selection_jx] < scores_a[selection_ix]
         selection_ix = selection_jx[mask_ix]
         updated = [population[ix] for ix in selection_ix]
         return updated
@@ -165,15 +178,23 @@ class Optimize:
             #Honestly I would prefer scores as a dictonary of Key:Item pairs, TODO later.
             scores.append(['Init', candidate, file_name, self.scoring.get_score(lammps_data)])
 #            shutil.move(lammps_data, self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.data"%(candidate,0))
-        for iteration in range(self.config.sections['GENETIC'].ngenerations):               
+        for iteration in range(self.config.sections['GENETIC'].ngenerations):       
             population_in = scores.copy()
+            #print('pop in',population_in)
             #iterate selection method (good place to sub in different selection methods in the future)
             selected_sets = [self.tournament_selection_N(population_in,k=ki,seed=None) for idx in range(len(starting_generation))]
+            #print('raw sets',selected_sets)
             #remove empty selections (TODO remove empty selection solution)
             selected_sets = [s for s in selected_sets if len(s) >=2]
             selected= [item for sublist in selected_sets for item in sublist]
             #filter for uniqueness (no repeats of candidates from population in selection)
-            selected = self.filter_unique(selected)
+            #print('selected pre filter',selected)
+            filtered = self.filter_unique(selected)
+            if len(filtered) > ki:
+                selected = filtered
+            else:
+                print('not enough unique candidates found. using repeats')
+            #selected = self.filter_unique(selected)
             """
             selection = scores.copy() 
             for round in range(len(selection)-2): #-2 because we want to keep the best and second-best for crossover
@@ -250,24 +271,31 @@ class Optimize:
             else:
                 batch = self.genetic.crossover(atoms_winner, atoms_runner_up) #Should have two structures
                 #batch = self.genetic.crossover_ASE(atoms_winner, atoms_runner_up) #crossover function from ASE
-
+            print('batch i',batch)
             for candidate in range(len(batch)):
                 file_name = self.config.sections['TARGET'].job_prefix+"_Cand%sGen%s.lammps-data"%(candidate,iteration)
                 #NOTE: is lammps_data here always pulled from starting_generation? if so
                 #      it needs to be updated so that the candidate is pulled from the 'current_generation'
                 #      so far, it is unclear to me if the starting generation is just repeatedly operated on or
                 #      if the generation is being updated and operated on.
-                lammps_data = self.convert.ase_to_lammps(starting_generation[candidate],file_name) #NOTE question in comment above here
+                #TODO resolve where 'lammps_data' is coming from. This is leading to errors
+                #  with multi-element example candidates not being updated 
+                lammps_data = self.convert.ase_to_lammps(starting_generation[candidate],file_name)
+                #Why does lammps_data not come from batch? candidates should come from previous generation not the starting generation every time
+                # When trying the line below, candidates are still not updated correctly
+                #lammps_data = self.convert.ase_to_lammps(batch[candidate],file_name)
                 #scores.append([iteration, candidate, file_name, self.scoring.get_score(lammps_data)])
                 score_win = self.scoring.get_score(self.convert.ase_to_lammps(atoms_winner,file_name +'-win'))
                 score_conv = self.scoring.get_score(lammps_data)
                 print('score comp', candidate, len(batch), score_conv, score_win)
                 #TODO help james understand why the 'winner' score not the lowest candidate score in line below
                 #   winner is now lowest score
-                #print('score comp', candidate, len(batch), score_conv, score_win)
                 scores.append([iteration, candidate, file_name, score_conv])
                 #shutil.move(lammps_data, self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.data"%(candidate,iteration))
+            current_generation = []
+        #NOTE dont we need to begin from previous generation? 
         for file in glob.glob(self.config.sections['TARGET'].job_prefix + "_Cand*Gen*"):
+            
             if file not in  [row[2] for row in gen_winners]:
                 os.remove(file)
 
