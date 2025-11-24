@@ -28,7 +28,7 @@ class Gradient:
         write_data %s_last.data""" % (self.config.sections['TARGET'].job_prefix)
         before_score, after_score = self.scoring.add_cmds_before_score(add_cmds,data)
         end_data = self.config.sections['TARGET'].job_prefix + "_last.data"
-        return before_score, after_score, end_data
+        return before_score, after_score, data
     
     def fire_min(self,data,tole=0.0,tolf=0.0):
         #Will construct a set of additional commands to send to LAMMPS before scoring
@@ -274,23 +274,29 @@ class Optimize:
             print('batch i',batch)
             for candidate in range(len(batch)):
                 file_name = self.config.sections['TARGET'].job_prefix+"_Cand%sGen%s.lammps-data"%(candidate,iteration)
+                tmp_fname = self.config.sections['TARGET'].job_prefix + ""
                 #NOTE: is lammps_data here always pulled from starting_generation? if so
                 #      it needs to be updated so that the candidate is pulled from the 'current_generation'
                 #      so far, it is unclear to me if the starting generation is just repeatedly operated on or
                 #      if the generation is being updated and operated on.
                 #TODO resolve where 'lammps_data' is coming from. This is leading to errors
                 #  with multi-element example candidates not being updated 
-                lammps_data = self.convert.ase_to_lammps(starting_generation[candidate],file_name)
+                #lammps_data = self.convert.ase_to_lammps(starting_generation[candidate],file_name)
                 #Why does lammps_data not come from batch? candidates should come from previous generation not the starting generation every time
                 # When trying the line below, candidates are still not updated correctly
-                #lammps_data = self.convert.ase_to_lammps(batch[candidate],file_name)
+                #lammps_data = self.convert.ase_to_lammps(batch[candidate],tmp_fname)
+                lammps_data = self.convert.ase_to_lammps(batch[candidate],file_name)
                 #scores.append([iteration, candidate, file_name, self.scoring.get_score(lammps_data)])
-                score_win = self.scoring.get_score(self.convert.ase_to_lammps(atoms_winner,file_name +'-win'))
+                #score_win = self.scoring.get_score(self.convert.ase_to_lammps(atoms_winner,tmp_fname +'-win'))
+                #score_win = self.scoring.get_score(self.convert.ase_to_lammps(atoms_winner,file_name +'-win'))
                 score_conv = self.scoring.get_score(lammps_data)
-                print('score comp', candidate, len(batch), score_conv, score_win)
+                #print('score comp', candidate, len(batch), score_conv, score_win)
+                print('score comp', candidate, len(batch), score_conv,file_name,lammps_data)#, score_win)
                 #TODO help james understand why the 'winner' score not the lowest candidate score in line below
                 #   winner is now lowest score
-                scores.append([iteration, candidate, file_name, score_conv])
+                #scores.append([iteration, candidate, file_name, score_conv])
+                scores.append([iteration, candidate, lammps_data, score_conv])
+                #scores.append([iteration, candidate, lammps_data, score_win])
                 #shutil.move(lammps_data, self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.data"%(candidate,iteration))
             current_generation = []
         #NOTE dont we need to begin from previous generation? 

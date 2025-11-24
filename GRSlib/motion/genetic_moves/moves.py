@@ -124,8 +124,8 @@ class GenMoves():
                 flip_current = new_atoms[pert_ind].symbol
                 excluded = [typ for typ in elements if typ != flip_current]
                 #NOTE
-                #flip_to_type = np.random.choice([ue for ue in uniques if ue != flip_current])
-                flip_to_type = np.random.choice([ue for ue in uniques])
+                flip_to_type = np.random.choice([ue for ue in uniques if ue != flip_current])
+                #flip_to_type = np.random.choice([ue for ue in uniques])
                 new_atoms[pert_ind].symbol = flip_to_type
             new_elements = [atom.symbol for atom in new_atoms]
             new_ele_counts_raw = Counter(new_elements)

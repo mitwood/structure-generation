@@ -130,16 +130,22 @@ class Genetic:
             mutation_array = random.choices(list(mutation_options.keys()), weights=mutation_options.values(), k=self.config.sections["GENETIC"].population_size)
         else:
             mutation_array = random.choices(list(mutation_options.keys()), weights=mutation_options.values(), k=1)
+        print('mut array',mutation_array)
         for mutation in mutation_array:
             event = getattr(GenMoves, mutation)
             mutated = event(parent,self.config)
-
-            pre_move_lammps = self.convert.ase_to_lammps(mutated,'tmp')
-            grad_type = self.config.sections['GRADIENT'].min_type + '_min'
-            event = getattr(self.gradmove, grad_type)
-            before_score, after_score, post_move_lammps = event(pre_move_lammps)
-            mutated = self.convert.lammps_to_ase(post_move_lammps)
-
+            print('in mutation: mutated before',mutated)
+            """
+            #TODO update for other operations (other than change_ele) 
+            if self.config.sections['GRADIENT'].min_type == 'none':
+                pre_move_lammps = self.convert.ase_to_lammps(mutated,'tmp')
+                grad_type = self.config.sections['GRADIENT'].min_type + '_min'
+                event = getattr(self.gradmove, grad_type)
+                print('grad_type',grad_type,event)
+                before_score, after_score, post_move_lammps = event(pre_move_lammps)
+                mutated = self.convert.lammps_to_ase(post_move_lammps)
+                print('in mutation: mutated after', mutated)
+            """
             mutated_population.append(mutated)
-
+        print('mutated pop',mutated_population)
         return mutated_population
