@@ -90,12 +90,19 @@ class Create:
 
     #Starting point types:
     def from_template(self,*args):
+        #TODO make the 'random shuffle' a more formal function that can handle elements self.config.sections["BASIS"]
+        random_shuffle = True
         #More of a super function that will call a bunch of the ones below
 #        print("Starting population using provided template")
         population = []
         duplicate = self.convert.lammps_to_ase(args[0][0])
         for candidate in range(self.config.sections["GENETIC"].population_size):
-            population.append(duplicate)
+            tmp_atoms = duplicate.copy()
+            if random_shuffle:
+                duplicate_syms = [atom.symbol for atom in tmp_atoms]
+                np.random.shuffle(duplicate_syms)
+                tmp_atoms.symbols = duplicate_syms
+            population.append(tmp_atoms)
         return population
     
     def from_lattice(self,*args):
