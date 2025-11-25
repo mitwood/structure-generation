@@ -1,6 +1,7 @@
 from GRSlib.motion.scoring import Scoring
 import jax.numpy as jnp
 import numpy as np
+import jax
 from jax import grad, jit
 from functools import partial
 
@@ -118,6 +119,8 @@ class Moments(Scoring):
             tst_residual_final = tst_residual_av*float(self.config.sections['SCORING'].moments_coeff[0]) + bonus #MAE + bonus
         else:
             tst_residual_final = tst_residual*float(self.config.sections['SCORING'].moments_coeff[0]) + bonus #MAE + bonus
+        jax.debug.print("first moment inside JIT: {}", tst_residual_final)
+        #print('in first moment',float(tst_residual_final))
         return tst_residual_final
 
     @partial(jit, static_argnums=(0,))
