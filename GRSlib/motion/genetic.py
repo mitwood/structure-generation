@@ -130,11 +130,10 @@ class Genetic:
             mutation_array = random.choices(list(mutation_options.keys()), weights=mutation_options.values(), k=self.config.sections["GENETIC"].population_size)
         else:
             mutation_array = random.choices(list(mutation_options.keys()), weights=mutation_options.values(), k=1)
-        print('mut array',mutation_array)
         for mutation in mutation_array:
             event = getattr(GenMoves, mutation)
             mutated = event(parent,self.config)
-            print('in mutation: mutated before',mutated)
+            #print('in mutation: mutated before',mutated)
             """
             #TODO update for other operations (other than change_ele) 
             if self.config.sections['GRADIENT'].min_type == 'none':
@@ -147,5 +146,5 @@ class Genetic:
                 print('in mutation: mutated after', mutated)
             """
             mutated_population.append(mutated)
-        print('mutated pop',mutated_population)
+        #print('mutated pop',mutated_population)
         return mutated_population
