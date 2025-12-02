@@ -49,6 +49,7 @@ class Gradient:
         min_style  cg
         min_modify dmax %2.2f line quadratic
         dump 1 all custom 1 minimize_line.dump id type x y z fx fy fz
+        displace_atoms all random 0.01 0.01 0.01 12345 units box
         minimize %1.1E %1.1E %s %s
         write_data %s_last.data
         """ % (dmax,tole,tolf, self.config.sections['GRADIENT'].nsteps, self.config.sections['GRADIENT'].nsteps, self.config.sections['TARGET'].job_prefix)
@@ -261,7 +262,7 @@ class Optimize:
                 #scores.append([iteration, candidate, file_name, self.scoring.get_score(lammps_data)])
                 score_win = self.scoring.get_score(self.convert.ase_to_lammps(atoms_winner,file_name +'-win'))
                 score_conv = self.scoring.get_score(lammps_data)
-                print('score comp', candidate, len(batch), score_conv, score_win)
+                #print('score comp', candidate, len(batch), score_conv, score_win)
                 #TODO help james understand why the 'winner' score not the lowest candidate score in line below
                 #   winner is now lowest score
                 #print('score comp', candidate, len(batch), score_conv, score_win)
