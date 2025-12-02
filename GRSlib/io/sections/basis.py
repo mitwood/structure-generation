@@ -22,7 +22,7 @@ try:
                 else:
                     raise RuntimeError(">>> Found unmatched variable in BASIS section of input: ",value_name)
             self.descriptor = self.get_value("BASIS", "descriptor", "ACE")
-            self.numtypes = len(self.get_value("BASIS", "elements", "H"))
+            #self.numtypes = len(self.get_value("BASIS", "elements", "H"))
             self.ranks = self.get_value("BASIS","ranks","3").split()
             self.lmin = self.get_value("BASIS", "lmin", "0").split() 
             self.lmax = self.get_value("BASIS", "lmax", "2").split()
@@ -34,7 +34,10 @@ try:
             self.rcinner = self.get_value("BASIS","rcinner",'0.0').split()
             self.drcinner = self.get_value("BASIS","drcinner",'0.01').split()
             self.elements = self.get_value("BASIS", "elements", "H").split()
+            print('elements',self.elements)
+            print('rcinner',self.rcinner)
             self.mumax = len(self.elements)
+            self.numtypes = len(self.elements)
             #self.erefs = self.get_value("ACE", "erefs", "0.0").split() 
             self.erefs = [0.0] * len(self.elements)
             self.bikflag = self.get_value("BASIS", "bikflag", "1", "bool")
@@ -112,7 +115,10 @@ try:
             nus.sort(key = lambda x : mu0s[nus_unsort.index(x)],reverse = False)
             byattyp = srt_by_attyp(nus)
             #config.nus = [item for sublist in list(byattyp.values()) for item in sublist]
+            print('byatttyp',byattyp)
+            print('num type',self.numtypes)
             for atype in range(self.numtypes):
+                print('atype',atype)
                 nus = byattyp[str(atype)]
                 for nu in nus:
                     i += 1
@@ -140,6 +146,7 @@ try:
                 bondinds=range(len(self.elements))
                 bonds = [b for b in itertools.product(bondinds,bondinds)]
                 bondstrs = ['[%d, %d]' % b for b in bonds]
+                print('bond strs basis.py',bondstrs)
                 assert len(self.lmbda) == len(bondstrs), "must provide rc, lambda, for each BOND type" 
                 assert len(self.rcutfac) == len(bondstrs), "must provide rc, lambda, for each BOND type" 
                 if len(self.lmbda) == 1:
@@ -178,6 +185,8 @@ try:
                         #print (ccs)
                         #store them for later so they don't need to be recalculated
                         store_generalized(ccs, coupling_type='wig',L_R=L_R)
+
+                print('rcinner vals basis.py', rcinnervals)
 
                 apot = AcePot(self.elements, reference_ens, [int(k) for k in self.ranks], [int(k) for k in self.nmax],  [int(k) for k in self.lmax], self.nmaxbase, rcvals, lmbdavals, rcinnervals, drcinnervals, [int(k) for k in self.lmin], self.b_basis, **{'ccs':ccs[M_R]})
                 apot.write_pot('coupling_coefficients')

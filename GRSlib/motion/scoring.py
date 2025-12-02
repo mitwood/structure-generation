@@ -5,6 +5,8 @@ from GRSlib.converters.sections.lammps_base import Base, _extract_compute_np
 import lammps, lammps.mliap
 from lammps.mliap.loader import *
 from functools import partial
+from ase.data import atomic_masses, atomic_numbers
+from ase.io import read
 import numpy as np
 
 #Scoring has to be a class within motion because we want a consistent reference for scores, and this
@@ -30,6 +32,16 @@ class Scoring:
 #        nprocs = self.lmp.extract_setting("world_size")
 #        cmds = ["-screen", "none", "-log", "none"]
 #        self.lmp = lammps(cmdargs = cmds)
+        types = self.config.sections["BASIS"].elements
+        Z_of_type = {i+1:atomic_numbers[ele] for i,ele in enumerate(types)}
+        tmp_ats = read(self.data,format='lammps-data',Z_of_type=Z_of_type)
+        has_types = []
+        for at in tmp_ats:
+            if at.symbol not in has_types:
+                has_types.append(at.symbol)
+        #TODO check this when some elements not in self.data (e.g. do we need list below if we only have Ca instead of both Ca and Mg in self.data)
+        #masses_per_typ = {typ+1:atomic_masses[atomic_numbers[ele]] for typ,ele in enumerate(has_types)}
+        masses_per_typ = {typ+1:atomic_masses[atomic_numbers[ele]] for typ,ele in enumerate(types)}
         self.lmp = self.pt.initialize_lammps('log.lammps',0)
         lammps.mliap.activate_mliappy(self.lmp)
         #NOTE thermo modify norm yes to make score magnitude (and soft contribution) independent of system size
@@ -48,6 +60,10 @@ class Scoring:
         thermo_modify norm yes
         """
         init_lmp=construct_string.format(self.data, self.config.sections["GRADIENT"].soft_strength, (" ".join(str(x) for x in self.config.sections['BASIS'].elements)))
+        mass_str = ""
+        for typ,mass in masses_per_typ.items():
+            mass_str = mass_str + "mass     %d  %f \n" % (typ,mass)
+        init_lmp = init_lmp + mass_str
         #TODO make the possibility to import any reference potential to be used with the mliap one
         self.lmp.commands_string(init_lmp)
         lammps.mliap.load_model(self.loss_func)
@@ -75,9 +91,12 @@ class Scoring:
 
     def get_score(self,data):
         self.data = data
+        num_atoms = len(read(data,format='lammps-data'))
         self.construct_lmp()
         self.lmp.command("run 0")
         score = self.lmp.get_thermo("pe") # potential energy
+        #TODO, do we still need this if thermo #NO WE DONT
+        #score /= num_atoms
 #        del self.lmp
         return score
 
@@ -85,10 +104,12 @@ class Scoring:
         self.data = data
         self.construct_lmp()
         before_score = self.get_score(data)
+        num_atoms = len(read(data,format='lammps-data'))
         try:
             self._extract_commands(string)
             self.lmp.commands_string("run 0")
             after_score = self.lmp.get_thermo("pe") # potential energy
+            #after_score /= num_atoms
         except:
             print("LAMMPS Crashed, reported score will be prior to motion.")
             after_score = before_score

@@ -91,27 +91,58 @@ class GenMoves():
         return new_atoms
 
     def change_ele(atoms,config):
+        #NOTE this function changes elements correctly, but candidates are not being used correctly in
+        # motion.py during tournament selection
+        tol = config.sections["GENETIC"].change_ele_tol
+        #tol = 0.1 # % tolerance for composition constraint
+        tol_int = int(round(tol*len(atoms)))
+        pm_frac = tol_int/len(atoms)
+        assert pm_frac >= 0, "need to adjust tolerance in change_ele"
 
-        chem_comp = atoms.get_chemical_formula(mode='all')
-        elements = Counter(chem_comp).keys() #same as set(chem_comp)
-        ele_counts = Counter(chem_comp).items()/len(atoms.numbers()) #counts per unique element
-
+        #this splits CaMgCaMgMg into  ['C','a','M','g']
+        #chem_comp = atoms.get_chemical_formula(mode='all')
+        #elements = list(Counter(chem_comp).keys()) #same as set(chem_comp) 
+        #ele_counts = Counter(chem_comp).items()/len(atoms.numbers) #counts per unique element
+        uniques = config.sections["BASIS"].elements.copy()
+        elements = [atom.symbol for atom in atoms]
+        ele_counts_raw = Counter(elements)
+        ele_counts_dct = {ue:ele_counts_raw[ue]/len(atoms) for ue in uniques}
+        ele_counts = list(ele_counts_dct.values())
+        old_comp = ele_counts.copy()
+        #min/max # of indices to perturb
+        mn = 1/len(atoms)
+        mx = (len(atoms)-1)/len(atoms)
         itr = 0
-        while itr == 0 or any([icomp == 0.0 for icomp in ele_counts]):
-            fraction = np.random.rand()
-            pert_inds = np.random.choice(range(len(atoms)),size=int(len(atoms)*fraction) )
-            new_atoms = atoms.copy()
+        target_dct = config.sections["GENETIC"].composition_constraint.copy()
+        target_comp = tuple(list(target_dct.values()))
+        le_cond = any([icomp < target_comp[ii] - pm_frac for ii,icomp in enumerate(ele_counts)])
+        ge_cond = any([icomp > target_comp[ii] + pm_frac for ii,icomp in enumerate(ele_counts)])
+        new_atoms = atoms.copy()
+        while itr == 0 or le_cond or ge_cond:
+            fraction = np.random.uniform(mn,mx)
+            pert_inds = np.random.choice(range(len(atoms)),size=int(len(atoms)*fraction),replace=False )
             for pert_ind in pert_inds:
-                flip_ind = np.random.randint(0,len(atoms))
-                flip_current = new_atoms[flip_ind].symbol
+                flip_current = new_atoms[pert_ind].symbol
                 excluded = [typ for typ in elements if typ != flip_current]
-                flip_to_ind = np.random.randint(0,len(excluded))
-                flip_to_type = excluded[flip_to_ind]
-                new_atoms[flip_ind].symbol = flip_to_type
-            elements = Counter(chem_comp).keys() #same as set(chem_comp)
-            ele_counts = Counter(chem_comp).items()/len(atoms.numbers()) #counts per unique element
+                #NOTE
+                #flip_to_type = np.random.choice([ue for ue in uniques if ue != flip_current])
+                flip_to_type = np.random.choice([ue for ue in uniques])
+                new_atoms[pert_ind].symbol = flip_to_type
+            new_elements = [atom.symbol for atom in new_atoms]
+            new_ele_counts_raw = Counter(new_elements)
+            ele_counts_dct = {ue:new_ele_counts_raw[ue]/len(atoms) for ue in uniques}
+            ele_counts = list(ele_counts_dct.values())
+            compare_comp = tuple(list(ele_counts_dct.values()))
+            le_cond = any([icomp < target_comp[ii] - pm_frac for ii,icomp in enumerate(ele_counts)])
+            ge_cond = any([icomp > target_comp[ii] + pm_frac for ii,icomp in enumerate(ele_counts)])
             itr += 1
-
+        new_elements = [atom.symbol for atom in new_atoms]
+        new_ele_counts_raw = Counter(new_elements)
+        ele_counts_dct = {ue:new_ele_counts_raw[ue]/len(atoms) for ue in uniques}
+        ele_counts = list(ele_counts_dct.values())
+        le_cond = any([icomp < target_comp[ii] - pm_frac for ii,icomp in enumerate(ele_counts)])
+        ge_cond = any([icomp > target_comp[ii] + pm_frac for ii,icomp in enumerate(ele_counts)])
+        print('final',itr,target_comp,ele_counts, le_cond,ge_cond)
         return new_atoms
 
     def minimize(atoms,config):
