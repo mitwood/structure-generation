@@ -36,17 +36,17 @@ class Moments(Scoring):
             #TODO Explain
             score = self.construct_loss(current_desc, self.target_desc)
             energy[:] = 0
-            energy[0] = float(self.config.sections["SCORING"].strength_target)*score #Scaled score (energy) between current and target
+            energy[0] = self.config.sections["SCORING"].strength_target*score #Scaled score (energy) between current and target
             forces = self.grad_loss(current_desc, self.target_desc) #Forces between current and target
             beta[:,:]= 0
-            beta[:,self.mask] = float(self.config.sections["SCORING"].strength_target)*forces #Scaled forces between current and target
+            beta[:,self.mask] = self.config.sections["SCORING"].strength_target*forces #Scaled forces between current and target
 
             #TODO Explain
-            score = self.construct_loss(current_desc, self.prior_desc)
-#            energy[0] += float(self.config.sections["SCORING"].strength_prior)*score #Scaled score (energy) between current and prior
+            score = self.construct_loss(self.prior_desc, self.target_desc)
+#            energy[0] += self.config.sections["SCORING"].strength_prior*score #Scaled score (energy) between current and prior
 #            print("     Target, Prior Scores: ", energy[0], score)
             forces = self.grad_loss(current_desc, self.prior_desc) #Forces between current and prior structures
-            beta[:,self.mask] += float(self.config.sections["SCORING"].strength_prior)*forces #Scaled forces between current and prior
+            beta[:,self.mask] += self.config.sections["SCORING"].strength_prior*forces #Scaled forces between current and prior
 
         elif self.mode=="update":
             self.update(args)
@@ -64,7 +64,24 @@ class Moments(Scoring):
         self.target_desc = descriptors.get('target',None).copy()
         self.prior_desc = descriptors.get('prior',None).copy()
         self.n_descriptors = np.shape(self.target_desc)[1]
-        self.mask = list(range(self.n_descriptors))
+        if self.config.sections["SCORING"].smartmask > 0:
+            indices = []
+            target_std = np.std(self.target_desc, axis=0)
+            nmax_var = len(target_std) - int(np.ceil(self.config.sections["SCORING"].smartmask/2))
+            nmin_var = int(np.floor(self.config.sections["SCORING"].smartmask/2))
+            list_max_var = sorted(target_std,key=lambda x: x)[nmax_var:]
+            list_min_var = sorted(target_std,key=lambda x: x)[:nmin_var]
+            for val in list_max_var:
+                indices.append(np.where(target_std==val)[0][0])
+            for val in list_min_var:
+                indices.append(np.where(target_std==val)[0][0])
+
+            self.mask = np.zeros(len(target_std), dtype=int)
+            self.mask[indices] = 1
+            
+        else:
+            self.mask = np.zeros(self.n_descriptors, dtype=int) + 1
+
 
         #if self.n_elements > 1:
             #if self.current_desc != None:
@@ -109,8 +126,8 @@ class Moments(Scoring):
 
     @partial(jit, static_argnums=(0,))
     def first_moment(self, current_desc, target_desc):
-        current_avg = jnp.average(current_desc, axis=0)
-        target_avg = jnp.average(target_desc, axis=0)
+        current_avg = jnp.average(current_desc, axis=0)*self.mask
+        target_avg = jnp.average(target_desc, axis=0)*self.mask
         tst_residual = jnp.sum(jnp.nan_to_num(jnp.abs(current_avg-target_avg)))
         tst_residual_av = jnp.average(jnp.nan_to_num(jnp.abs(current_avg-target_avg)))
         is_zero = jnp.array(jnp.isclose(tst_residual,jnp.zeros(tst_residual.shape)),dtype=int)
@@ -125,8 +142,8 @@ class Moments(Scoring):
 
     @partial(jit, static_argnums=(0,))
     def second_moment(self, current_desc, target_desc):
-        current_std = jnp.std(current_desc, axis=0)
-        target_std = jnp.std(target_desc, axis=0)
+        current_std = jnp.std(current_desc, axis=0)*self.mask
+        target_std = jnp.std(target_desc, axis=0)*self.mask
         tst_residual = jnp.sum(jnp.nan_to_num(jnp.abs(current_std-target_std)))
         tst_residual_av = jnp.average(jnp.nan_to_num(jnp.abs(current_std-target_std)))
         is_zero = jnp.array(jnp.isclose(tst_residual,jnp.zeros(tst_residual.shape)),dtype=int)
@@ -140,12 +157,12 @@ class Moments(Scoring):
     @partial(jit, static_argnums=(0,))
     def third_moment(self, current_desc, target_desc):
         #Showing my work for Pearsons skew = (3(mean-median)/stdev))
-        current_avg = jnp.average(current_desc, axis=0)
-        target_avg = jnp.average(target_desc, axis=0)
-        current_std = jnp.std(current_desc, axis=0)
-        target_std = jnp.std(target_desc, axis=0)
-        current_med = jnp.median(current_desc, axis=0)
-        target_med = jnp.median(target_desc, axis=0)
+        current_avg = jnp.average(current_desc, axis=0)*self.mask
+        target_avg = jnp.average(target_desc, axis=0)*self.mask
+        current_std = jnp.std(current_desc, axis=0)*self.mask
+        target_std = jnp.std(target_desc, axis=0)*self.mask
+        current_med = jnp.median(current_desc, axis=0)*self.mask
+        target_med = jnp.median(target_desc, axis=0)*self.mask
 
         current_skew = 3.0*(current_avg-current_med)/current_std
         target_skew = 3.0*(target_avg-target_med)/target_std
@@ -163,10 +180,10 @@ class Moments(Scoring):
     @partial(jit, static_argnums=(0,))
     def fourth_moment(self, current_desc, target_desc):
         #Showing my work for Kurtosis = Avg(z^4.0)-3 where z=(x-avg(x))/stdev(x)
-        current_avg = jnp.average(current_desc, axis=0)
-        target_avg = jnp.average(target_desc, axis=0)
-        current_std = jnp.std(current_desc, axis=0)
-        target_std = jnp.std(target_desc, axis=0)
+        current_avg = jnp.average(current_desc, axis=0)*self.mask
+        target_avg = jnp.average(target_desc, axis=0)*self.mask
+        current_std = jnp.std(current_desc, axis=0)*self.mask
+        target_std = jnp.std(target_desc, axis=0)*self.mask
 
         current_kurt = jnp.average(((current_desc-current_avg)/current_std)**4.0)-3.0 
         target_kurt = jnp.average(((target_desc-target_avg)/target_std)**4.0)-3.0 

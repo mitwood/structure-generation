@@ -16,7 +16,6 @@ import numpy as np
 
 class Scoring:
 
-#    def __init__(self, pt, config, data, loss_ff, **kwargs):
     def __init__(self, pt, config, loss_func, descriptors):
         self.pt = pt #ParallelTools()
         self.config = config #Config()

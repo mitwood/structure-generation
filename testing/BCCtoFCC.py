@@ -17,7 +17,7 @@ settings = \
     "rcutfac": 5.5,
     "lambda": 1.4,
     "ranks": "1 2 3",
-    "lmax": "0 3 3",
+    "lmax": "0 0 0",
     "lmin": "0 0 0",
     "nmax": "8 1 1",
     "nmaxbase": 8,
@@ -37,6 +37,7 @@ settings = \
     "target_fname": "fcc.data",
     "target_fdesc": "fcc.npy",
     "start_fname": "bcc.data",
+    "prior_fdesc": "prior.npy",
     "job_prefix": "BCCtoFCC"
     },
 "GRADIENT":
@@ -50,9 +51,9 @@ settings = \
 "GENETIC":
     {
     "start_type": "random",  #Can be random or template right now. If template, starting generation is ["TARGET"].start_fname
-    "mutation_rate": 0.50,
-    "mutation_types": {"perturb": 0.2, "change_ele": 0.0, "atom_count" : 0.30, "volume" : 0.20, "minimize" : 0.2, "ortho_cell" : 0.10}, 
-    "population_size": 40,
+    "mutation_rate": 0.5,
+    "mutation_types": {"perturb": 0.3, "change_ele": 0.0, "atom_count" : 0.30, "volume" : 0.30, "minimize" : 0.05, "ortho_cell" : 0.05}, 
+    "population_size": 100,
     "ngenerations": 10,
     "max_atoms": 50,
     "min_atoms": 10,
@@ -65,19 +66,50 @@ settings = \
 
 grs = GRS(settings,comm=comm)
 
+tourny_winners = []
 score = grs.get_score(settings["TARGET"]["start_fname"])
 print("     Starting Score:",score)
 
-updated_struct = settings["TARGET"]["start_fname"]
-grs.set_prior([updated_struct])
+scores, best_struct = grs.genetic_move(settings["TARGET"]["target_fname"])
 
-scores, best_struct = grs.genetic_move(updated_struct)
+score = grs.get_score(best_struct)
+print("     Best Score:",score, "from",best_struct)
+renamed_best = "Winner-0_"+best_struct
+shutil.move(best_struct, renamed_best)
+tourny_winners.append(renamed_best)
 
-updated_struct = grs.gradient_move(best_struct)
-score = grs.get_score(updated_struct)
-print("     Ending Score:",score)
+print("Setting priors with:",tourny_winners)
+grs.set_prior(tourny_winners)
+grs.config.sections['SCORING'].strength_target = 0.0
+grs.config.sections['SCORING'].strength_prior = 1.0
+#grs.config.view_state('SCORING')
+score = grs.get_score(renamed_best)
+print("    Score wrt Priors (best candidates of each gen):",score)
 
-#updated_struct = grs.update_start(updated_struct,"MinScore")
-#grs.set_prior(glob.glob(settings['TARGET']["job_prefix"]+"*.data"))
+grs.config.sections['GENETIC'].start_type = "template"
 
-exit()
+for i in range(10):
+    for file in glob.glob(grs.config.sections['TARGET'].job_prefix + "_Cand*Gen*"):
+        if file not in  [row[2] for row in tourny_winners]:
+            os.remove(file)
+    grs.config.sections['SCORING'].strength_target = 1.0
+    grs.config.sections['SCORING'].strength_prior = 0.0
+
+    scores, best_struct = grs.genetic_move(renamed_best)
+
+    score = grs.get_score(best_struct)
+    print("     Best Score:",score, "from",best_struct)
+    renamed_best = "Winner-%s_"%i+best_struct
+    shutil.move(best_struct, renamed_best)
+    tourny_winners.append(renamed_best)
+
+    print("     Ending Score:",score, "from",renamed_best)   
+
+    print("Setting priors with:",tourny_winners)
+    grs.set_prior(tourny_winners)
+    grs.config.sections['SCORING'].strength_target = 0.0
+    grs.config.sections['SCORING'].strength_prior = 1.0
+    #grs.config.view_state('SCORING')
+    score = grs.get_score(renamed_best)
+    print("    Score wrt Priors (best candidates of each gen):",score)
+

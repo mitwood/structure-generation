@@ -7,6 +7,8 @@ from GRSlib.motion.motion import Gradient, Optimize, Create
 
 import random, copy, os, glob, shutil
 import numpy as np
+import scipy as sp
+from scipy.stats import wasserstein_distance
 
 class GRS:
     """ 
@@ -57,7 +59,7 @@ class GRS:
         """
         Override set attribute statement to prevent overwriting important attributes of an instance.
         """
-        protected = ("pt", "config")
+        protected = ("pt", "comm")
         if name in protected and hasattr(self, name):
             raise AttributeError(f"Overwriting {name} is not allowed; instead change {name} in place.")
         else:
@@ -147,14 +149,15 @@ class GRS:
         between file types (xyz=lammps-data, ase.Atoms, etc)
         """
         #Pass data to, and do something with the functs of scoring
-        if self.config.sections['TARGET'].target_fname == None:
-            print("Provided target descriptors superceed target data file")
+        #if self.config.sections['TARGET'].target_fname is None:
+            #print("Provided target descriptors superceed target data file")
+        try:
             self.descriptors['target'] = np.load(self.config.sections['TARGET'].target_fdesc)    
-        else:
+        except:
             self.descriptors['target'] = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
         self.descriptors['current'] = self.convert_to_desc(data)
         
-        try:
+        try: # If prior is empty when getting a score, set to starting structure. 
             if self.descriptors.get('prior',None)==None: 
                 self.set_prior([self.config.sections['TARGET'].start_fname])
         except:
@@ -169,15 +172,57 @@ class GRS:
             
         return score
 
+    def get_ensemble_score(self,style):
+        #Will score the set of structures stored in self.descriptors["prior"] against those in
+        #self.descriptors["target"] using the full distributions of descriptors. A few varients
+        #will be reported back, Wasserstein distance and Exact Difference for now.
+        if style == 'normalized':
+            #Start by normalizing the descriptor histograms (subtract mean, divide by stdev in each dimension)
+            target_means = np.average(self.descriptors["target"], axis=0)
+            target_stdev = np.std(self.descriptors["target"], axis=0)
+            if target_stdev.any() < 1E-6:
+                print("WARNING - your target has dimensions of high symmetry and results in an abnormal normalization when ensemble scoring")
+            num_descriptors = np.shape(self.descriptors['target'])[1]
+            simple_diff = 0.0
+            earthmover = 0.0
+            normed_target = (self.descriptors["target"]-target_means)/target_stdev
+            normed_prior = (self.descriptors["prior"]-target_means)/target_stdev
+            for dimension in range(num_descriptors):
+                low_limit = min(np.min(normed_target[:,dimension], axis=0),np.min(normed_prior[:,dimension],axis=0))
+                high_limit = max(np.max(normed_target[:,dimension], axis=0),np.max(normed_prior[:,dimension],axis=0))
+                histo_target, edges = np.histogram(normed_target[:,dimension], bins=100, range=(low_limit,high_limit), density=True)
+                histo_prior, edges = np.histogram(normed_prior[:,dimension], bins=100, range=(low_limit,high_limit), density=True)               
+                simple_diff += sum(map(abs, (histo_target-histo_prior)))
+                earthmover += wasserstein_distance(edges[:-1], edges[:-1], histo_target, histo_prior)
+            score = ["Simple Difference",simple_diff/num_descriptors]
+            score += (["Wasserstein",earthmover/num_descriptors])
+
+        elif style == 'native':
+            num_descriptors = np.shape(self.descriptors['target'])[1]
+            simple_diff = 0.0
+            earthmover = 0.0
+            for dimension in range(num_descriptors):
+                low_limit = min(np.min(self.descriptors["target"][:,dimension], axis=0),np.min(self.descriptors["prior"][:,dimension],axis=0))
+                high_limit = max(np.max(self.descriptors["target"][:,dimension], axis=0),np.max(self.descriptors["prior"][:,dimension],axis=0))
+                histo_target, edges = np.histogram(self.descriptors["target"][:,dimension], bins=100, range=(low_limit,high_limit), density=True)
+                histo_prior, edges = np.histogram(self.descriptors["prior"][:,dimension], bins=100, range=(low_limit,high_limit), density=True)
+                simple_diff += sum(map(abs, (histo_target-histo_prior)))
+                earthmover += wasserstein_distance(edges[:-1], edges[:-1], histo_target, histo_prior)
+            score = ["Simple Difference",simple_diff/num_descriptors]
+            score += (["Wasserstein",earthmover/num_descriptors])
+
+        return score
+    
     def propose_structure(self):
         """
+        Currently not usable.
         Propose new structure from random, ase, or templates.
         """
-        @self.pt.single_timeit
-        def propose_structure():
-            print("Called Propose_Structure")
-        propose_structure()
+        trial_struct = bulk(self.config.sections["BASIS"].elements[item])
+        write('proposed.lammps-data', trial_struct, format='lammps-data', masses=True)
+        return 'proposed.lammps-data'
 
+#    @self.pt.single_timeit 
     def genetic_move(self,data):
         """
         Hybridize or mutate a structure using a set of moves sampled via a genetic algorithm
