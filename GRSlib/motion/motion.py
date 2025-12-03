@@ -49,7 +49,6 @@ class Gradient:
         min_style  cg
         min_modify dmax %2.2f line quadratic
         dump 1 all custom 1 minimize_line.dump id type x y z fx fy fz
-        displace_atoms all random 0.01 0.01 0.01 12345 units box
         minimize %1.1E %1.1E %s %s
         write_data %s_last.data
         """ % (dmax,tole,tolf, self.config.sections['GRADIENT'].nsteps, self.config.sections['GRADIENT'].nsteps, self.config.sections['TARGET'].job_prefix)
