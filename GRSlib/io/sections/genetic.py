@@ -8,7 +8,7 @@ class Genetic(Section):
         super().__init__(name, config, pt, infile,args)
         self.allowedkeys = ['mutation_rate', 'mutation_types', 'population_size', 'ngenerations', 'start_type',
                             'max_atoms', 'min_atoms', 'max_length_aspect', 'max_angle_aspect', 'density_ratio',
-                            'composition_constraint', 'composition', 'start_type', 'lattice_type', 'structure_template', 'frac_pop_per_ref', 'dev_per_ref','reference_phases']
+                            'composition_constraint', 'composition', 'start_type', 'lattice_type', 'structure_template', 'frac_pop_per_ref', 'dev_per_ref','reference_phases', 'change_ele_tol']
         self._check_section()
         self.mutation_rate = self.get_value("GENETIC", "mutation_rate", 0.5, interpreter="float")
         #self.reference_phases = self.get_value("GENETIC", "reference_phases", "bcc").split()
@@ -16,6 +16,7 @@ class Genetic(Section):
         self.population_size = self.get_value("GENETIC", "population_size", 20, interpreter="int")
         self.ngenerations = self.get_value("GENETIC", "ngenerations", 10, interpreter="int")
         self.max_atoms = self.get_value("GENETIC", "max_atoms", 100, interpreter="int")
+        self.change_ele_tol = self.get_value("GENETIC", "change_ele_tol", 0.1, interpreter="float")
         self.min_atoms = self.get_value("GENETIC", "min_atoms", 10, interpreter="int")
         #self.reference_phases = self.get_value("GENETIC","reference_phases", "bcc").split()
         self.max_length_aspect = self.get_value("GENETIC", "max_length_aspec", 3.0, interpreter="float")

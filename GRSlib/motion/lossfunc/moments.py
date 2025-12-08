@@ -1,6 +1,7 @@
 from GRSlib.motion.scoring import Scoring
 import jax.numpy as jnp
 import numpy as np
+import jax
 from jax import grad, jit
 from functools import partial
 
@@ -9,7 +10,9 @@ class Moments(Scoring):
         self.pt, self.config, descriptors = args
         self.target_desc = descriptors.get('target',None).copy() 
         self.prior_desc = descriptors.get('prior',None).copy()
+        self.current_desc = descriptors
         self.n_descriptors = np.shape(self.target_desc)[1]
+        print('moments num desc',self.n_descriptors)
         self.mask = list(range(self.n_descriptors))
         self.n_params = 1 #Variables LAMMPS needs to know about
         self.n_elements = self.config.sections['BASIS'].numtypes #Variables LAMMPS needs to know about
@@ -89,10 +92,11 @@ class Moments(Scoring):
             self.mask = np.zeros(self.n_descriptors, dtype=int) + 1
 
 
-        if self.n_elements > 1:
-            self.current_desc = self.current_desc.flatten()
-            self.target_desc = self.target_desc.flatten()
-            self.prior_desc = self.prior_desc.flatten()
+        #if self.n_elements > 1:
+            #if self.current_desc != None:
+        #    self.current_desc = self.current_desc.flatten()
+        #    self.target_desc = self.target_desc.flatten()
+        #    self.prior_desc = self.prior_desc.flatten()
         self.mode = "score"
 
     @partial(jit, static_argnums=(0,))
@@ -137,7 +141,12 @@ class Moments(Scoring):
 #        tst_residual_av = jnp.average(jnp.nan_to_num(jnp.abs(current_avg-target_avg)))
         is_zero = jnp.array(jnp.isclose(tst_residual,jnp.zeros(tst_residual.shape)),dtype=int)
         bonus = -jnp.sum(is_zero*(float(self.config.sections['SCORING'].moments_bonus[0])))
-        tst_residual_final = tst_residual*float(self.config.sections['SCORING'].moments_coeff[0]) + bonus #MAE + bonus
+        if self.divide_by_numdesc:
+            tst_residual_final = tst_residual_av*float(self.config.sections['SCORING'].moments_coeff[0]) + bonus #MAE + bonus
+        else:
+            tst_residual_final = tst_residual*float(self.config.sections['SCORING'].moments_coeff[0]) + bonus #MAE + bonus
+        jax.debug.print("first moment inside JIT: {}", tst_residual_final)
+        #print('in first moment',float(tst_residual_final))
         return tst_residual_final
 
     @partial(jit, static_argnums=(0,))

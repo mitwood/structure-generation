@@ -1,5 +1,6 @@
 from GRSlib.parallel_tools import ParallelTools
 from ase.io import read, write, lammpsdata
+from ase.data import atomic_masses, atomic_numbers
 
 
 class Convert:
@@ -12,22 +13,29 @@ class Convert:
 #   boilerplate for the ASE conversions, or descriptor conversions that dont need LAMMPS
 
     def ase_to_lammps(self,data,*args):
+        types = self.config.sections["BASIS"].elements
+        Z_of_type = {i+1:atomic_numbers[ele] for i,ele in enumerate(types)}
         """
         Takes in an ase.Atoms object and writes a lammps-data, returns the file name
         """
         fname = args[0]
-        write(fname, data, format='lammps-data', masses=True)
+        #write(fname, data, format='lammps-data', masses=True, Z_of_type=Z_of_type)
+        write(fname, data, format='lammps-data', masses=False)
         
         return fname
 
     def lammps_to_ase(self,data):
+        types = self.config.sections["BASIS"].elements
+        
+        Z_of_type = {i+1:atomic_numbers[ele] for i,ele in enumerate(types)}
         """
         Takes in a lammps-data file and returns an ase.Atoms object
         """
         try:
-            ase_data = read(data,format='lammps-data')
+            ase_data = read(data,format='lammps-data',Z_of_type=Z_of_type)
         except:
-            ase_data = read(data+".lammps-data",format='lammps-data')
+            ase_data = read(data+".lammps-data",format='lammps-data',Z_of_type=Z_of_type)
+        print('in GRSlib/converters/convert.py lammps_to_ase ',ase_data,types)
         return ase_data
 
     def lammps_ace(self,data):
