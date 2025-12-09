@@ -139,20 +139,33 @@ class Optimize:
         
         #print(selection[mp_inds[0]],selection[mp_inds[1]])
     
-    def tournament_selection_N(self,population_in,k=3,seed=None):
+    def tournament_selection_N(self,population_in,k,seed):
         population = population_in.copy()
         scores = [p[3] for p in population]
         scores_a = np.array(scores)
         #lowest_k_minus_1_scores = scores.copy().sort(key=lambda x : x[3],reverse=False)[:k-1]
         if seed != None:
             np.random.seed(seed)
-        selection_ix = np.random.choice(range(0,len(population)),k-1,replace=False)
+        selection_ix = np.random.choice(range(0,len(population)),k,replace=False)
         not_ix = [j for j in range(0,len(population)) if j not in selection_ix]
-        selection_jx = np.random.choice(not_ix,k-1,replace=False)
-        mask_ix = scores_a[selection_jx] <= scores_a[selection_ix]
-        #mask_ix = scores_a[selection_jx] < scores_a[selection_ix]
-        selection_ix = selection_jx[mask_ix]
+        selection_jx = np.random.choice(not_ix,k,replace=False)
+        tourny_wins = []
+        for id in range(k):
+            if scores_a[selection_jx[id]] <= scores_a[selection_ix[id]]:
+                tourny_wins.append(selection_jx[id])
+            else:
+                tourny_wins.append(selection_ix[id])
         updated = [population[ix] for ix in selection_ix]
+
+        """
+        mask_ix = scores_a[selection_jx] <= scores_a[selection_ix]
+        print(mask_ix)
+        selection_ix = selection_jx[mask_ix]
+        print(selection_ix)
+        updated = [population[ix] for ix in selection_ix]
+        print(updated)
+        """
+
         return updated
 
     def filter_unique(self,selection):
@@ -167,35 +180,37 @@ class Optimize:
     def unique_selection(self, data):
         #More of a super function that will call a bunch of the ones below
         #This should be the default since we dont want to send duplicates the crossover/mutation
-        ki=3 #default
-        #ki =4
+        ki = int(self.config.sections["GENETIC"].population_size/2) # 3 #Need to do better here
+
         self.genetic = Genetic(self.pt, self.config,self.convert,self.scoring,self.gradmove)    
+
         starting_generation = Create.starting_generation(self,data)
         scores = []
         gen_winners = []
-        for candidate in range(len(starting_generation)):
+        for candidate in range(self.config.sections["GENETIC"].population_size):
             file_name = self.config.sections['TARGET'].job_prefix+"_Cand%sGen%s.lammps-data"%(candidate,'Init')
             lammps_data = self.convert.ase_to_lammps(starting_generation[candidate],file_name)
             #Honestly I would prefer scores as a dictonary of Key:Item pairs, TODO later.
             scores.append(['Init', candidate, file_name, self.scoring.get_score(lammps_data)])
+        # We now have the scores from the starting generation which uses a from_(start_type) to populate
+
 #            shutil.move(lammps_data, self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.data"%(candidate,0))
         for iteration in range(self.config.sections['GENETIC'].ngenerations):       
-            population_in = scores.copy()
-            print('pop in',population_in)
+
             #iterate selection method (good place to sub in different selection methods in the future)
-            selected_sets = [self.tournament_selection_N(population_in,k=ki,seed=None) for idx in range(len(starting_generation))]
-            print('raw sets',selected_sets)
+            selected_sets = [self.tournament_selection_N(scores,ki,None) for idx in range(self.config.sections["GENETIC"].population_size)]
+
             #remove empty selections (TODO remove empty selection solution)
             selected_sets = [s for s in selected_sets if len(s) >=2]
             selected= [item for sublist in selected_sets for item in sublist]
+
             #filter for uniqueness (no repeats of candidates from population in selection)
-            print('selected pre filter',selected)
             filtered = self.filter_unique(selected)
             if len(filtered) > ki:
                 selected = filtered
             else:
                 print('not enough unique candidates found. using repeats')
-            print('selected post filter',selected)
+#            print('selected post filter',selected)
             #selected = self.filter_unique(selected)
             """
             selection = scores.copy() 
@@ -216,10 +231,10 @@ class Optimize:
             #     especially if having trouble finding the right solution. adding some randomness helps avoid 
             #     convergence to local minimum.
             #     we could also try (winner + random) , (winner + random_top_10_percent) , (random + random)
-            print("Iteration:",iteration, "Winner:",winner, "Second:",runner_up)
+            print("Iteration:",iteration, "Winner:",winner[2],winner[3], "Second:",runner_up[2],runner_up[3])
             with open("scoring_%s.txt"%self.config.sections['TARGET'].job_prefix, "a") as f:
                 print(iteration, winner, runner_up, file=f)
-            print('winner',winner,winner[2])
+#            print('winner',winner,winner[2])
             atoms_winner = self.convert.lammps_to_ase(winner[2])
             atoms_runner_up = self.convert.lammps_to_ase(runner_up[2])
 
@@ -262,16 +277,17 @@ class Optimize:
                 batch = self.genetic.crossover(atoms_winner, atoms_runner_up) #Should have two structures
                 #batch = self.genetic.crossover_ASE(atoms_winner, atoms_runner_up) #crossover function from ASE
             #print('batch i',batch)
-            for candidate in range(len(batch)):
+
+            for candidate in range(self.config.sections["GENETIC"].population_size):
                 file_name = self.config.sections['TARGET'].job_prefix+"_Cand%sGen%s.lammps-data"%(candidate,iteration)
                 lammps_data = self.convert.ase_to_lammps(batch[candidate],file_name)
                 score_conv = self.scoring.get_score(lammps_data)
                 scores.append([iteration, candidate, lammps_data, score_conv])
-                print('gen %d cand %d score %f' % (iteration,candidate,score_conv))
-                shutil.move(lammps_data, self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.lammps-data"%(candidate,iteration))
-            current_generation = []
-        for file in glob.glob(self.config.sections['TARGET'].job_prefix + "_Cand*Gen*"):
-            
+#                print('gen %d cand %d score %f' % (iteration,candidate,score_conv), file_name)
+#                shutil.move(lammps_data, self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.lammps-data"%(candidate,iteration))
+ 
+ 
+        for file in glob.glob(self.config.sections['TARGET'].job_prefix + "_Cand*Gen*"):          
             if file not in  [row[2] for row in gen_winners]:
                 os.remove(file)
 

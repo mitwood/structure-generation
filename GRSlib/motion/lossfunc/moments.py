@@ -12,7 +12,6 @@ class Moments(Scoring):
         self.prior_desc = descriptors.get('prior',None).copy()
         self.current_desc = descriptors
         self.n_descriptors = np.shape(self.target_desc)[1]
-        print('moments num desc',self.n_descriptors)
         self.mask = list(range(self.n_descriptors))
         self.n_params = 1 #Variables LAMMPS needs to know about
         self.n_elements = self.config.sections['BASIS'].numtypes #Variables LAMMPS needs to know about
@@ -32,21 +31,20 @@ class Moments(Scoring):
         if self.mode=="score":     
             elems, current_desc, beta, energy = args
             self.n_atoms = np.shape(current_desc)[0]
-
             #TODO Explain
             score = self.construct_loss(current_desc, self.target_desc)
 
             energy[:] = 0
             forces = self.grad_loss(current_desc, self.target_desc) #Forces between current and target
             beta[:,:]= 0
-            if self.config.sections['SCORING'].norm_by_numdesc == True:
+            if self.config.sections['SCORING'].norm_by_numdesc:
                 energy[0] = self.config.sections["SCORING"].strength_target*score/self.n_descriptors #Scaled score (energy) between current and target
                 beta[:,:] = self.config.sections["SCORING"].strength_target*forces/self.n_descriptors #Scaled forces between current and target
             else:
                 energy[0] = self.config.sections["SCORING"].strength_target*score
                 beta[:,:] = self.config.sections["SCORING"].strength_target*forces 
 
-
+            """
             #TODO Explain
             score = self.construct_loss(self.prior_desc, self.target_desc)
 #            energy[0] += self.config.sections["SCORING"].strength_prior*score #Scaled score (energy) between current and prior
@@ -56,11 +54,10 @@ class Moments(Scoring):
                 beta[:,:] += self.config.sections["SCORING"].strength_prior*forces/self.n_descriptors #Scaled forces between current and prior
             else:
                 beta[:,:] += self.config.sections["SCORING"].strength_prior*forces 
-
+            """
         elif self.mode=="update":
             self.update(args)
             beta = self.grad_loss(self.target_desc, self.target_desc)
-
 
     def set_mode_update(self):
         self.mode="update"
@@ -138,14 +135,11 @@ class Moments(Scoring):
         current_avg = jnp.average(current_desc, axis=0)*self.mask
         target_avg = jnp.average(target_desc, axis=0)*self.mask
         tst_residual = jnp.sum(jnp.nan_to_num(jnp.abs(current_avg-target_avg)))
-#        tst_residual_av = jnp.average(jnp.nan_to_num(jnp.abs(current_avg-target_avg)))
+        tst_residual_av = jnp.average(jnp.nan_to_num(jnp.abs(current_avg-target_avg)))
         is_zero = jnp.array(jnp.isclose(tst_residual,jnp.zeros(tst_residual.shape)),dtype=int)
         bonus = -jnp.sum(is_zero*(float(self.config.sections['SCORING'].moments_bonus[0])))
-        if self.divide_by_numdesc:
-            tst_residual_final = tst_residual_av*float(self.config.sections['SCORING'].moments_coeff[0]) + bonus #MAE + bonus
-        else:
-            tst_residual_final = tst_residual*float(self.config.sections['SCORING'].moments_coeff[0]) + bonus #MAE + bonus
-        jax.debug.print("first moment inside JIT: {}", tst_residual_final)
+        tst_residual_final = tst_residual*float(self.config.sections['SCORING'].moments_coeff[0]) + bonus #MAE + bonus
+        #jax.debug.print("first moment inside JIT: {}", tst_residual_final/38.0)
         #print('in first moment',float(tst_residual_final))
         return tst_residual_final
 

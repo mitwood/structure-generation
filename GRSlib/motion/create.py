@@ -94,9 +94,9 @@ class Create:
         random_shuffle = True
         #More of a super function that will call a bunch of the ones below
 #        print("Starting population using provided template")
-        population = []
         duplicate = self.convert.lammps_to_ase(args[0][0])
-        for candidate in range(self.config.sections["GENETIC"].population_size):
+        population = [duplicate]
+        for candidate in range(self.config.sections["GENETIC"].population_size-1):
             tmp_atoms = duplicate.copy()
             if random_shuffle:
                 duplicate_syms = [atom.symbol for atom in tmp_atoms]
