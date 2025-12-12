@@ -241,7 +241,7 @@ class GRS:
         self.score = Scoring(self.pt, self.config, self.loss_func, self.descriptors)  # Set scoring class to assign scores to moves
         self.genmove = Optimize(self.pt, self.config, self.score, self.convert) #Set desired motion class with scoring attached
         
-        gen_scores = self.genmove.unique_selection(data)
+        gen_scores = self.genmove.advance_generations(data)
         #self.write_output()
         best_candidate = sorted(gen_scores,key=lambda x: x[3])[0][2]
         return gen_scores, best_candidate
